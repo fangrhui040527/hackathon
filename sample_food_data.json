@@ -1,0 +1,24 @@
+{
+  "product_name": "Instant Noodles - Spicy Chicken Flavor",
+  "barcode": "8801043157735",
+  "ingredients": "Enriched wheat flour, palm oil, modified starch, salt, sugar, monosodium glutamate (E621), sodium carbonate, potassium carbonate, guar gum, tocopherols (antioxidant), dried chicken, garlic powder, onion powder, chili powder, soy sauce powder (soybeans, wheat, salt), disodium inosinate (E631), disodium guanylate (E627), sodium benzoate (E211), caramel color (E150d), artificial chicken flavor, TBHQ (antioxidant)",
+  "nutrition": {
+    "serving_size": "120g",
+    "calories": 500,
+    "total_fat": 20,
+    "saturated_fat": 9,
+    "trans_fat": 0,
+    "cholesterol": 0,
+    "sodium": 1790,
+    "total_carbohydrates": 68,
+    "dietary_fiber": 2,
+    "sugars": 3,
+    "protein": 10,
+    "vitamin_a": 0,
+    "vitamin_c": 0,
+    "calcium": 20,
+    "iron": 3.6
+  },
+  "allergens": "wheat, soy",
+  "brand": "Sample Brand"
+}

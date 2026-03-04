@@ -1,0 +1,250 @@
+{
+  "interactions": [
+    {
+      "drug": "warfarin",
+      "drug_class": "anticoagulant",
+      "interacting_foods": [
+        "spinach",
+        "kale",
+        "broccoli",
+        "brussels sprouts",
+        "green tea",
+        "cranberry",
+        "liver",
+        "collard greens",
+        "turnip greens",
+        "parsley",
+        "asparagus",
+        "avocado"
+      ],
+      "nutrient": "vitamin K",
+      "severity": "critical",
+      "mechanism": "Vitamin K counteracts warfarin's anticoagulant effect.",
+      "advice": "KEEP vitamin K intake CONSISTENT day-to-day. Do NOT suddenly eat large amounts of green leafy vegetables.",
+      "danger": "Sudden increase → blood clots. Sudden decrease → excessive bleeding."
+    },
+    {
+      "drug": "statins",
+      "drug_aliases": [
+        "atorvastatin",
+        "simvastatin",
+        "lovastatin",
+        "rosuvastatin"
+      ],
+      "drug_class": "HMG-CoA reductase inhibitor",
+      "interacting_foods": [
+        "grapefruit",
+        "grapefruit juice",
+        "pomelo",
+        "seville orange",
+        "starfruit"
+      ],
+      "nutrient": "furanocoumarins",
+      "severity": "critical",
+      "mechanism": "Grapefruit inhibits CYP3A4 enzyme, causing statin blood levels to rise dangerously.",
+      "advice": "COMPLETELY AVOID grapefruit and grapefruit juice while on statins.",
+      "danger": "Can cause rhabdomyolysis (muscle breakdown), kidney failure."
+    },
+    {
+      "drug": "MAOI antidepressants",
+      "drug_aliases": [
+        "phenelzine",
+        "tranylcypromine",
+        "isocarboxazid",
+        "selegiline"
+      ],
+      "drug_class": "monoamine oxidase inhibitor",
+      "interacting_foods": [
+        "aged cheese",
+        "cured meats",
+        "salami",
+        "pepperoni",
+        "soy sauce",
+        "miso",
+        "tempeh",
+        "sauerkraut",
+        "kimchi",
+        "red wine",
+        "draft beer",
+        "tap beer",
+        "fermented foods",
+        "smoked fish",
+        "pickled herring"
+      ],
+      "nutrient": "tyramine",
+      "severity": "critical",
+      "mechanism": "Tyramine + MAOI → uncontrolled norepinephrine release → hypertensive crisis.",
+      "advice": "COMPLETELY AVOID tyramine-rich foods. Can cause a potentially fatal hypertensive crisis.",
+      "danger": "Sudden severe headache, rapid heart rate, stroke, death."
+    },
+    {
+      "drug": "metformin",
+      "drug_class": "biguanide (diabetes)",
+      "interacting_foods": [
+        "alcohol",
+        "wine",
+        "beer",
+        "spirits"
+      ],
+      "nutrient": "ethanol",
+      "severity": "high",
+      "mechanism": "Alcohol + metformin → increased lactic acidosis risk.",
+      "advice": "AVOID or strictly limit alcohol while on metformin.",
+      "danger": "Lactic acidosis can be fatal. Also worsens blood sugar control."
+    },
+    {
+      "drug": "ACE inhibitors",
+      "drug_aliases": [
+        "lisinopril",
+        "enalapril",
+        "ramipril",
+        "captopril",
+        "benazepril"
+      ],
+      "drug_class": "ACE inhibitor",
+      "interacting_foods": [
+        "banana",
+        "orange",
+        "potato",
+        "tomato",
+        "salt substitute",
+        "coconut water",
+        "spinach",
+        "avocado",
+        "dried apricots"
+      ],
+      "nutrient": "potassium",
+      "severity": "high",
+      "mechanism": "ACE inhibitors raise blood potassium. High-K foods → hyperkalemia.",
+      "advice": "LIMIT high-potassium foods. Avoid potassium-based salt substitutes.",
+      "danger": "Hyperkalemia → cardiac arrhythmias, cardiac arrest."
+    },
+    {
+      "drug": "levothyroxine",
+      "drug_aliases": [
+        "synthroid",
+        "thyroid medication"
+      ],
+      "drug_class": "thyroid hormone",
+      "interacting_foods": [
+        "soy",
+        "soy milk",
+        "tofu",
+        "edamame",
+        "walnuts",
+        "cottonseed meal",
+        "fiber supplements",
+        "coffee",
+        "espresso",
+        "calcium-fortified juice"
+      ],
+      "nutrient": "calcium, soy isoflavones, fiber",
+      "severity": "moderate",
+      "mechanism": "These foods reduce thyroid medication absorption.",
+      "advice": "Take thyroid medication on empty stomach, 30-60 min before these foods.",
+      "danger": "Reduced medication effectiveness → hypothyroid symptoms return."
+    },
+    {
+      "drug": "lithium",
+      "drug_class": "mood stabilizer",
+      "interacting_foods": [
+        "salt",
+        "sodium",
+        "caffeine",
+        "coffee",
+        "tea"
+      ],
+      "nutrient": "sodium, caffeine",
+      "severity": "high",
+      "mechanism": "Sodium and caffeine changes alter lithium blood levels unpredictably.",
+      "advice": "Keep sodium and caffeine intake CONSISTENT. Do not drastically change diet.",
+      "danger": "Low sodium → lithium toxicity. High sodium → lithium ineffectiveness."
+    },
+    {
+      "drug": "calcium channel blockers",
+      "drug_aliases": [
+        "amlodipine",
+        "felodipine",
+        "nifedipine",
+        "verapamil"
+      ],
+      "drug_class": "calcium channel blocker",
+      "interacting_foods": [
+        "grapefruit",
+        "grapefruit juice",
+        "pomelo"
+      ],
+      "nutrient": "furanocoumarins",
+      "severity": "high",
+      "mechanism": "Grapefruit increases drug blood levels via CYP3A4 inhibition.",
+      "advice": "AVOID grapefruit and grapefruit juice.",
+      "danger": "Excessive blood pressure drop, dizziness, fainting."
+    },
+    {
+      "drug": "tetracycline antibiotics",
+      "drug_aliases": [
+        "doxycycline",
+        "minocycline",
+        "tetracycline"
+      ],
+      "drug_class": "antibiotic",
+      "interacting_foods": [
+        "milk",
+        "cheese",
+        "yogurt",
+        "calcium supplements",
+        "iron supplements",
+        "antacids"
+      ],
+      "nutrient": "calcium, iron, magnesium",
+      "severity": "moderate",
+      "mechanism": "Minerals chelate with tetracyclines, blocking absorption.",
+      "advice": "Take antibiotic 1 hour before or 2 hours after dairy/minerals.",
+      "danger": "Antibiotic becomes ineffective → infection persists."
+    },
+    {
+      "drug": "antiplatelet agents",
+      "drug_aliases": [
+        "aspirin",
+        "clopidogrel",
+        "plavix"
+      ],
+      "drug_class": "antiplatelet",
+      "interacting_foods": [
+        "garlic",
+        "ginger",
+        "ginkgo",
+        "turmeric",
+        "fish oil",
+        "omega-3 supplements",
+        "vitamin E"
+      ],
+      "nutrient": "natural blood thinners",
+      "severity": "moderate",
+      "mechanism": "These foods/supplements have natural antiplatelet effects, compounding the drug effect.",
+      "advice": "Moderate intake. Report any unusual bruising or bleeding to doctor.",
+      "danger": "Excessive bleeding risk from compounded antiplatelet effects."
+    },
+    {
+      "drug": "spironolactone",
+      "drug_aliases": [
+        "aldactone",
+        "eplerenone"
+      ],
+      "drug_class": "potassium-sparing diuretic",
+      "interacting_foods": [
+        "banana",
+        "orange",
+        "potato",
+        "tomato",
+        "salt substitute",
+        "coconut water"
+      ],
+      "nutrient": "potassium",
+      "severity": "high",
+      "mechanism": "Drug retains potassium + high-K food → dangerous hyperkalemia.",
+      "advice": "LIMIT high-potassium foods. Monitor blood potassium regularly.",
+      "danger": "Cardiac arrhythmias, cardiac arrest."
+    }
+  ]
+}
