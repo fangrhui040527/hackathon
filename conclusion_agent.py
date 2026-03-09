@@ -5,7 +5,6 @@ and produces a unified, user-friendly summary with overall ratings and key takea
 Uses Microsoft Agent Framework.
 """
 
-import os
 from agent_framework import ChatAgent, ChatMessage
 from dotenv import load_dotenv
 

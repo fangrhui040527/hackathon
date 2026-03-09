@@ -20,7 +20,6 @@ from agent_framework import ai_function
 # Import existing API wrappers
 from tools.usda_api import search_foods as _usda_search
 from tools.foodb_api import search_foods as _foodb_search, get_food_nutrients as _foodb_nutrients
-from tools.openfoodfacts_api import search_by_name as _off_search
 from tools.ddinter_api import check_drug_food_interactions as _ddinter_check
 from tools.openfda_api import (
     check_food_recalls as _fda_recalls,

@@ -1,8 +1,9 @@
-import React from 'react';
+import React from 'react';  
 import { useFonts, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { Nunito_400Regular, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { ScanProvider } from './src/context/ScanContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import './global.css';
 
 export default function App() {
   const [fontsLoaded] = useFonts({

@@ -1,8 +1,8 @@
 """
 grounding_pipeline.py
 Enriches raw food data (from Content Understanding / OCR) with grounded knowledge
-from APIs and Azure Blob-backed knowledge databases before passing to the
-5 specialist agents.
+from APIs and Azure Blob-backed knowledge databases before passing to the 5
+specialist agents.
 
 Knowledge Sources:
   APIs: fdc.nal.usda.gov, foodb.ca, ddinter2.scbdd.com, open.fda.gov,
@@ -302,13 +302,41 @@ def _extract_field(data: dict, possible_keys: list[str]):
         return None
     for key in possible_keys:
         if key in data and data[key]:
-            return data[key]
+            val = data[key]
+            # Handle Azure CU field objects like {"type":"string","valueString":"Tomato"}
+            if isinstance(val, dict) and "type" in val:
+                for vk in ("valueString", "valueNumber", "valueInteger", "valueBoolean",
+                            "valueObject", "valueArray", "value", "content"):
+                    if vk in val:
+                        return val[vk]
+            return val
     # Also check nested structures
     for key in ["result", "data", "fields", "analysis"]:
         if key in data and isinstance(data[key], dict):
             for k in possible_keys:
                 if k in data[key] and data[key][k]:
-                    return data[key][k]
+                    val = data[key][k]
+                    if isinstance(val, dict) and "type" in val:
+                        for vk in ("valueString", "valueNumber", "valueInteger", "valueBoolean",
+                                    "valueObject", "valueArray", "value", "content"):
+                            if vk in val:
+                                return val[vk]
+                    return val
+    # Check under "contents" → first item → "fields" (Azure CU format)
+    contents = data.get("contents", [])
+    if isinstance(contents, list) and contents:
+        first = contents[0] if isinstance(contents[0], dict) else {}
+        fields = first.get("fields", {})
+        if isinstance(fields, dict):
+            for k in possible_keys:
+                if k in fields and fields[k]:
+                    val = fields[k]
+                    if isinstance(val, dict) and "type" in val:
+                        for vk in ("valueString", "valueNumber", "valueInteger", "valueBoolean",
+                                    "valueObject", "valueArray", "value", "content"):
+                            if vk in val:
+                                return val[vk]
+                    return val
     return None
 
 
