@@ -8,9 +8,8 @@ a manual-input fallback so the rest of the pipeline can still run.
 """
 
 import os
-import time
-import base64
-import requests
+import uuid
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,15 +17,47 @@ load_dotenv()
 ENDPOINT = os.getenv("AZURE_CONTENT_UNDERSTANDING_ENDPOINT")
 API_KEY = os.getenv("AZURE_CONTENT_UNDERSTANDING_KEY")
 ANALYZER_ID = os.getenv("AZURE_CONTENT_UNDERSTANDING_ANALYZER_ID", "HealthLens")
-API_VERSION = "2025-11-01"  # or "2024-06-01" depending on your service version
 
-
-TIMEOUT = 30  # seconds for HTTP requests
+CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "hackathon")
 
 
 def is_service_configured() -> bool:
     """Check whether Azure Content Understanding is configured."""
     return bool(ENDPOINT and API_KEY)
+
+
+def _upload_image_to_blob(image_bytes: bytes, mime_type: str) -> str:
+    """Upload image to Azure Blob Storage and return a SAS URL valid for 1 hour."""
+    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions, ContentSettings
+
+    blob_service = BlobServiceClient.from_connection_string(CONNECTION_STRING)
+    container_client = blob_service.get_container_client(CONTAINER_NAME)
+    try:
+        container_client.create_container()
+    except Exception:
+        pass
+
+    ext = mime_type.split("/")[-1].replace("jpeg", "jpg")
+    blob_name = f"cu_images/{uuid.uuid4().hex[:8]}.{ext}"
+    blob_client = container_client.get_blob_client(blob_name)
+    blob_client.upload_blob(
+        image_bytes,
+        overwrite=True,
+        content_settings=ContentSettings(content_type=mime_type),
+    )
+
+    account_name = blob_service.account_name
+    account_key = blob_service.credential.account_key
+    sas_token = generate_blob_sas(
+        account_name=account_name,
+        container_name=CONTAINER_NAME,
+        blob_name=blob_name,
+        account_key=account_key,
+        permission=BlobSasPermissions(read=True),
+        expiry=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    return f"https://{account_name}.blob.core.windows.net/{CONTAINER_NAME}/{blob_name}?{sas_token}"
 
 
 def analyze_food_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
@@ -50,64 +81,28 @@ def analyze_food_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> dic
             "must be set in .env. Use --manual-json to provide food data directly."
         )
 
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    from azure.ai.contentunderstanding import ContentUnderstandingClient
+    from azure.ai.contentunderstanding.models import AnalysisInput
+    from azure.core.credentials import AzureKeyCredential
 
-    url = (
-        f"{ENDPOINT}/contentunderstanding/analyzers/{ANALYZER_ID}"
-        f":analyze?api-version={API_VERSION}"
+    # Upload image to blob storage and get a SAS URL
+    image_url = _upload_image_to_blob(image_bytes, mime_type)
+
+    client = ContentUnderstandingClient(
+        endpoint=ENDPOINT,
+        credential=AzureKeyCredential(API_KEY),
     )
 
-    headers = {
-        "Ocp-Apim-Subscription-Key": API_KEY,
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "content": {
-            "data": image_b64,
-            "mimeType": mime_type,
-        }
-    }
-
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=TIMEOUT)
-        response.raise_for_status()
-    except requests.ConnectionError as e:
-        raise RuntimeError(f"Content Understanding service unreachable: {e}") from e
-    except requests.Timeout:
-        raise RuntimeError(f"Content Understanding request timed out after {TIMEOUT}s")
-    except requests.HTTPError as e:
-        raise RuntimeError(f"Content Understanding HTTP error: {e.response.status_code} — {e.response.text[:300]}") from e
+        result = client.begin_analyze(
+            analyzer_id=ANALYZER_ID,
+            inputs=[AnalysisInput(url=image_url)],
+        ).result()
+        raw = result.as_dict()
+    except Exception as e:
+        raise RuntimeError(f"Content Understanding analysis failed: {e}") from e
 
-    # Handle async (202) vs sync response
-    if response.status_code == 202:
-        operation_url = response.headers.get("Operation-Location")
-        if operation_url:
-            raw = _poll_for_result(operation_url, headers)
-            return _flatten_cu_response(raw)
-
-    return _flatten_cu_response(response.json())
-
-
-def _poll_for_result(operation_url: str, headers: dict, max_wait: int = 120) -> dict:
-    """Poll an async operation until it completes."""
-    elapsed = 0
-    interval = 3
-
-    while elapsed < max_wait:
-        time.sleep(interval)
-        elapsed += interval
-        resp = requests.get(operation_url, headers=headers, timeout=TIMEOUT)
-        resp.raise_for_status()
-        result = resp.json()
-        status = result.get("status", "").lower()
-
-        if status in ("succeeded", "completed"):
-            return result.get("result", result)
-        elif status in ("failed", "error"):
-            raise RuntimeError(f"Content Understanding analysis failed: {result}")
-
-    raise TimeoutError(f"Content Understanding analysis timed out after {max_wait}s")
+    return _flatten_cu_response(raw)
 
 
 def _extract_field_value(field: dict):

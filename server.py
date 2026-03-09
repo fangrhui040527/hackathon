@@ -269,8 +269,9 @@ async def analyze(
             if is_service_configured():
                 try:
                     food_data = analyze_food_image(image_bytes, mime_type)
-                    print(f"[Analyze] Content Understanding returned keys: {list(food_data.keys()) if isinstance(food_data, dict) else type(food_data)}")
-                    print(f"[Analyze] Product name: {food_data.get('product_name', 'NOT FOUND')}")
+                    print(f"\n[Analyze] Content Understanding JSON result:")
+                    print(json.dumps(food_data, indent=2, ensure_ascii=False))
+                    print()
                 except Exception as e:
                     yield {"event": "stage", "data": json.dumps({"stage": "extract", "label": f"Content Understanding error: {str(e)[:100]}"})}
                     food_data = None
