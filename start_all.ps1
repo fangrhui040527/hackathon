@@ -22,7 +22,7 @@ if (Test-Path $venvActivate) {
 }
 
 # Single server - all agents mounted on port 8000
-$scriptPath = Join-Path $root "server.py"
+$scriptPath = Join-Path $root "backend\server.py"
 if (-not (Test-Path $scriptPath)) {
     Write-Host "[ERROR] server.py not found" -ForegroundColor Red
     exit 1
@@ -31,7 +31,8 @@ if (-not (Test-Path $scriptPath)) {
 $pids = @()
 
 Write-Host "[START] HealthScan API (all agents) on port 8000..." -ForegroundColor Green
-$serverCmd = "${activateCmd}cd '$root'; python '$scriptPath'"
+$backendDir = Join-Path $root "backend"
+$serverCmd = "${activateCmd}cd '$backendDir'; python 'server.py'"
 $proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", $serverCmd -PassThru
 $pids += $proc.Id
 Start-Sleep -Milliseconds 500

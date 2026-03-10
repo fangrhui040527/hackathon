@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "expo start",
+    "start": "start \"HealthScan Backend\" /MIN .venv\\Scripts\\python.exe -m uvicorn server:app --host 0.0.0.0 --port 8000 --app-dir backend & expo start",
+    "backend": ".venv\\Scripts\\python.exe -m uvicorn server:app --host 0.0.0.0 --port 8000 --app-dir backend",
+    "expo": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
@@ -35,6 +37,7 @@
   },
   "private": true,
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "tailwindcss": "^3.4.19"
   }
 }
