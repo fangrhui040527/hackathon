@@ -8,7 +8,6 @@ import {
   Animated,
   Image,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,8 +21,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../constants/colors';
 import { useScan } from '../context/ScanContext';
-import Background3D from '../components/Background3D';
+import FoodBackground from '../components/FoodBackground';
+import BurgerMenu from '../components/BurgerMenu';
 import VerdictBadge from '../components/VerdictBadge';
+import { useTheme } from '../context/ThemeContext';
 import { API_URL } from '../constants/api';
 import EventSource from 'react-native-sse';
 import { styles, rs, V_BG, V_BORDER } from './styles/ChatScreen.styles';
@@ -143,9 +144,7 @@ function AnalyzingMessage({ stageIndex }) {
 
   return (
     <View style={styles.msgRowAI}>
-      <View style={styles.aiAvatar}>
-        <Text style={styles.aiAvatarText}>🧬</Text>
-      </View>
+      <Image source={require('../../assets/HealthLensAI_Logo.png')} style={styles.aiAvatarImg} />
 
       <View style={styles.thinkingPanel}>
         {/* ── Header (always visible, tap to collapse) ── */}
@@ -221,9 +220,7 @@ function ResultMessage({ result, onViewFullAnalysis }) {
 
   return (
     <View style={styles.msgRowAI}>
-      <View style={styles.aiAvatar}>
-        <Text style={styles.aiAvatarText}>🧬</Text>
-      </View>
+      <Image source={require('../../assets/HealthLensAI_Logo.png')} style={styles.aiAvatarImg} />
 
       <View style={[
         styles.resultCard,
@@ -269,10 +266,12 @@ export default function ChatScreen({ navigation, route }) {
   const [inputText, setInputText]                 = useState('');
   const [isTyping, setIsTyping]                   = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState(null); // { uri }
+  const [menuOpen, setMenuOpen]                   = useState(false);
 
   const scrollRef        = useRef(null);
   const typingTimerRef   = useRef(null);
   const analysisTimerRef = useRef(null);
+  const menuAnim         = useRef(new Animated.Value(0)).current;
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -452,57 +451,101 @@ export default function ChatScreen({ navigation, route }) {
     startAnalysis(att.uri, caption);
   };
 
+  const openMenu = () => {
+    setMenuOpen(true);
+    Animated.spring(menuAnim, { toValue: 1, useNativeDriver: true, tension: 140, friction: 11 }).start();
+  };
+  const closeMenu = () => {
+    Animated.timing(menuAnim, { toValue: 0, duration: 160, useNativeDriver: true }).start(() => setMenuOpen(false));
+  };
+  const toggleMenu = () => (menuOpen ? closeMenu() : openMenu());
+
+  const handleClearChat = () => {
+    closeMenu();
+    setMessages([]);
+  };
+
   const chatIsEmpty = messages.length === 0 && !isTyping;
   const canSend     = !!pendingAttachment || !!inputText.trim();
 
+  const { isDark, palette } = useTheme();
+  const [burgerOpen, setBurgerOpen] = useState(false);
+
   return (
-    <View style={styles.container}>
-      <Background3D />
+    <View style={[styles.container, !isDark && { backgroundColor: palette.deep }]}>
+      <FoodBackground />
+      <BurgerMenu
+        visible={burgerOpen}
+        onClose={() => setBurgerOpen(false)}
+        navigation={navigation}
+        onClearChat={handleClearChat}
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
+        keyboardVerticalOffset={0}
       >
         {/* ── Header ───────────────────────────────────────────────────── */}
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          {/* Back button */}
+        <View style={[styles.header, { paddingTop: insets.top + 8 }, !isDark && { backgroundColor: palette.surface }]}>
+          <View style={{ width: 38 }} />
+
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, !isDark && { color: palette.text1 }]}>HealthScan AI</Text>
+            <Text style={[styles.headerSub, !isDark && { color: palette.text2 }]} numberOfLines={1}>
+              {result ? result.product : 'Powered by 5 AI specialists'}
+            </Text>
+          </View>
+
+          {/* Burger menu button */}
           <Pressable
-            onPress={() => navigation.navigate('Scan')}
-            style={styles.headerBackBtn}
+            onPress={() => setBurgerOpen(true)}
+            style={[styles.headerBackBtn, !isDark && { backgroundColor: palette.surface2 }]}
             hitSlop={8}
           >
-            <Text style={styles.headerBackText}>‹</Text>
+            <View style={styles.burgerWrap}>
+              <View style={[styles.burgerBar, !isDark && { backgroundColor: '#E8ECF4' }]} />
+              <View style={[styles.burgerBar, { width: 13 }, !isDark && { backgroundColor: '#E8ECF4' }]} />
+              <View style={[styles.burgerBar, !isDark && { backgroundColor: '#E8ECF4' }]} />
+            </View>
           </Pressable>
-
-          <Text style={styles.headerTitle}>HealthScan AI</Text>
-          {result && (
-            <Text style={styles.headerSub} numberOfLines={1}>
-              {result.product}
-            </Text>
-          )}
         </View>
 
         {/* ── Messages ─────────────────────────────────────────────────── */}
         <ScrollView
           ref={scrollRef}
-          style={styles.messagesScroll}
+          style={[styles.messagesScroll, { flexShrink: 1 }]}
           contentContainerStyle={[
             styles.messagesContent,
             chatIsEmpty && styles.messagesContentEmpty,
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={closeMenu}
         >
           {/* Empty state */}
           {chatIsEmpty && (
             <View style={styles.emptyState}>
-              <View style={styles.emptyIconBox}>
-                <Text style={styles.emptyIconText}>🧬</Text>
-              </View>
-              <Text style={styles.emptyTitle}>How can I help you?</Text>
-              <Text style={styles.emptyHint}>
-                Scan a nutrition label or ask me anything about your food
+              <Image
+                source={require('../../assets/HealthLensAI_Logo.png')}
+                style={styles.emptyLogo}
+              />
+              <Text style={[styles.emptyTitle, !isDark && { color: palette.text1 }]}>Your AI Food Analyst</Text>
+              <Text style={[styles.emptyHint, !isDark && { color: palette.text2 }]}>
+                Scan any nutrition label for an instant expert breakdown
               </Text>
+              <View style={styles.emptyFeatures}>
+                {[
+                  { icon: '🔬', label: 'Ingredient Scanner' },
+                  { icon: '🩺', label: '5 AI Specialists' },
+                  { icon: '📊', label: 'Nutrition Insights' },
+                ].map((f, i) => (
+                  <View key={i} style={[styles.featurePill, !isDark && { backgroundColor: palette.surface2 }]}>
+                    <Text style={styles.featurePillIcon}>{f.icon}</Text>
+                    <Text style={[styles.featurePillText, !isDark && { color: '#E8ECF4' }]}>{f.label}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
 
@@ -511,8 +554,8 @@ export default function ChatScreen({ navigation, route }) {
             if (msg.type === 'user_text') {
               return (
                 <View key={msg.id} style={styles.msgRowUser}>
-                  <View style={styles.msgBubbleUser}>
-                    <Text style={styles.msgTextUser}>{msg.text}</Text>
+                  <View style={[styles.msgBubbleUser, !isDark && { backgroundColor: palette.accent }]}>
+                    <Text style={[styles.msgTextUser, !isDark && { color: '#0d131a' }]}>{msg.text}</Text>
                   </View>
                 </View>
               );
@@ -521,10 +564,16 @@ export default function ChatScreen({ navigation, route }) {
             if (msg.type === 'user_image') {
               return (
                 <View key={msg.id} style={styles.msgRowUser}>
-                  <View style={styles.msgBubbleUser}>
-                    <Image source={{ uri: msg.imageUri }} style={styles.msgImage} />
+                  <View style={[styles.msgBubbleUser, styles.msgBubbleImage, !isDark && { backgroundColor: palette.accent }]}>
+                    <Image
+                      source={{ uri: msg.imageUri }}
+                      style={styles.msgImage}
+                      resizeMode="cover"
+                    />
                     {msg.caption ? (
-                      <Text style={[styles.msgTextUser, { marginTop: 8 }]}>{msg.caption}</Text>
+                      <Text style={[styles.msgTextUser, { marginTop: 8, paddingHorizontal: 14 }]}>
+                        {msg.caption}
+                      </Text>
                     ) : null}
                   </View>
                 </View>
@@ -534,9 +583,7 @@ export default function ChatScreen({ navigation, route }) {
             if (msg.type === 'ai_text') {
               return (
                 <View key={msg.id} style={styles.msgRowAI}>
-                  <View style={styles.aiAvatar}>
-                    <Text style={styles.aiAvatarText}>🧬</Text>
-                  </View>
+                  <Image source={require('../../assets/HealthLensAI_Logo.png')} style={styles.aiAvatarImg} />
                   <View style={styles.msgBubbleAI}>
                     <Text style={styles.msgTextAI}>{msg.text}</Text>
                   </View>
@@ -563,9 +610,7 @@ export default function ChatScreen({ navigation, route }) {
 
           {isTyping && (
             <View style={styles.msgRowAI}>
-              <View style={styles.aiAvatar}>
-                <Text style={styles.aiAvatarText}>🧬</Text>
-              </View>
+              <Image source={require('../../assets/HealthLensAI_Logo.png')} style={styles.aiAvatarImg} />
               <View style={[styles.msgBubbleAI, { paddingVertical: 16 }]}>
                 <BounceDots />
               </View>
@@ -573,78 +618,153 @@ export default function ChatScreen({ navigation, route }) {
           )}
         </ScrollView>
 
-        {/* ── Suggestion chips (empty state only) ──────────────────────── */}
-        {chatIsEmpty && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-            style={styles.chipsScroll}
-            keyboardShouldPersistTaps="handled"
-          >
-            {SUGGESTIONS.map((s, i) => (
-              <Pressable key={i} onPress={() => handleSend(s)} style={styles.chip}>
-                <Text style={styles.chipText}>{s}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        )}
+        {/* ── Bottom area ───────────────────────────────────────────────── */}
+        <View style={styles.bottomArea}>
 
-        {/* ── Pending image preview strip ───────────────────────────────── */}
-        {pendingAttachment && (
-          <View style={styles.attachmentStrip}>
-            <Image source={{ uri: pendingAttachment.uri }} style={styles.attachmentThumb} />
+          {/* ── Pop-up menu ────────────────────────────────────────────── */}
+          <Animated.View
+            pointerEvents={menuOpen ? 'box-none' : 'none'}
+            style={[
+              styles.popMenu,
+              !isDark && { backgroundColor: '#F5F5F5', borderColor: 'rgba(0,0,0,0.10)' },
+              {
+                opacity: menuAnim,
+                transform: [
+                  {
+                    translateY: menuAnim.interpolate({
+                      inputRange:  [0, 1],
+                      outputRange: [14, 0],
+                    }),
+                  },
+                  {
+                    scale: menuAnim.interpolate({
+                      inputRange:  [0, 1],
+                      outputRange: [0.93, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             <Pressable
-              onPress={() => setPendingAttachment(null)}
-              style={styles.attachmentRemove}
-              hitSlop={8}
+              style={styles.popMenuItem}
+              onPress={() => { closeMenu(); navigation.navigate('Scan'); }}
             >
-              <Text style={styles.attachmentRemoveText}>✕</Text>
+              <Image source={require('../../assets/BCamera_Icon.png')} style={[styles.popMenuItemImg, { tintColor: isDark ? '#FFFFFF' : '#0d131a' }, !isDark && { width: 40, height: 40 }]} />
+              <Text style={[styles.popMenuItemLabel, !isDark && { color: '#0d131a' }]}>Take a Photo</Text>
             </Pressable>
-            <Text style={styles.attachmentHint}>Add a caption or send now</Text>
-          </View>
-        )}
 
-        {/* ── Input bar ────────────────────────────────────────────────── */}
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-          {/* Gallery upload */}
-          <Pressable onPress={handleGalleryPick} style={styles.iconBtn} hitSlop={8}>
-            <Text style={styles.iconBtnText}>＋</Text>
-          </Pressable>
+            <View style={styles.popMenuDivider} />
 
-          {/* Camera → Scan screen */}
-          <Pressable
-            onPress={() => navigation.navigate('Scan')}
-            style={styles.iconBtn}
-            hitSlop={8}
-          >
-            <Text style={styles.iconBtnText}>📷</Text>
-          </Pressable>
-
-          {/* Text input */}
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder={pendingAttachment ? 'Add a caption...' : 'Message HealthScan AI...'}
-            placeholderTextColor={colors.textSecondary}
-            returnKeyType="send"
-            onSubmitEditing={() => handleSend()}
-            blurOnSubmit={false}
-            multiline
-          />
-
-          {/* Send button */}
-          <Pressable onPress={() => handleSend()} disabled={!canSend} hitSlop={4}>
-            <LinearGradient
-              colors={['#9B5DFF', '#7A3CF7']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+            <Pressable
+              style={styles.popMenuItem}
+              onPress={() => { closeMenu(); handleGalleryPick(); }}
             >
-              <Text style={styles.sendArrow}>↑</Text>
-            </LinearGradient>
-          </Pressable>
+              <Image source={require('../../assets/BImage_Icon.png')} style={[styles.popMenuItemImg, { tintColor: isDark ? '#FFFFFF' : '#0d131a' }, !isDark && { width: 40, height: 40 }]} />
+              <Text style={[styles.popMenuItemLabel, !isDark && { color: '#0d131a' }]}>Upload from Gallery</Text>
+            </Pressable>
+
+            {result && (
+              <>
+                <View style={styles.popMenuDivider} />
+                <Pressable
+                  style={styles.popMenuItem}
+                  onPress={() => { closeMenu(); navigation.navigate('Result'); }}
+                >
+                  <Text style={styles.popMenuItemIcon}>🔍</Text>
+                  <Text style={[styles.popMenuItemLabel, !isDark && { color: '#0d131a' }]}>View Last Analysis</Text>
+                </Pressable>
+              </>
+            )}
+
+            <View style={styles.popMenuDivider} />
+
+            <Pressable style={styles.popMenuItem} onPress={handleClearChat}>
+              <Image source={require('../../assets/Btrash_Icon.png')} style={[styles.popMenuItemImg, { tintColor: isDark ? '#FFFFFF' : '#0d131a' }, !isDark && { width: 40, height: 40 }]} />
+              <Text style={styles.popMenuItemLabelDanger}>Clear Chat</Text>
+            </Pressable>
+          </Animated.View>
+
+          {/* ── Suggestion chips (empty state only) ────────────────────── */}
+          {chatIsEmpty && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipsRow}
+              style={styles.chipsScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              {SUGGESTIONS.map((s, i) => (
+                <Pressable key={i} onPress={() => handleSend(s)} style={[styles.chip, !isDark && { backgroundColor: '#EFEFEF', borderColor: 'rgba(0,0,0,0.10)' }]}>
+                  <Text style={[styles.chipText, !isDark && { color: '#0d131a' }]}>{s}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+
+          {/* ── Pending image preview strip ─────────────────────────────── */}
+          {pendingAttachment && (
+            <View style={[styles.attachmentStrip, !isDark && { backgroundColor: palette.surface }]}>
+              <Image source={{ uri: pendingAttachment.uri }} style={styles.attachmentThumb} />
+              <Pressable
+                onPress={() => setPendingAttachment(null)}
+                style={styles.attachmentRemove}
+                hitSlop={8}
+              >
+                <Text style={styles.attachmentRemoveText}>✕</Text>
+              </Pressable>
+              <Text style={styles.attachmentHint}>Add a caption or send now</Text>
+            </View>
+          )}
+
+          {/* ── Input bar ──────────────────────────────────────────────── */}
+          <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 14) }, !isDark && { backgroundColor: palette.surface }]}>
+            {/* + button — opens attachment menu */}
+            <Pressable onPress={toggleMenu} style={[styles.plusBtn, !isDark && { backgroundColor: '#EFEFEF', borderColor: 'rgba(0,0,0,0.10)' }]} hitSlop={8}>
+              <Animated.Image
+                source={require('../../assets/BMore_Icon.png')}
+                style={[
+                  styles.plusBtnIcon,
+                  { tintColor: isDark ? '#FFFFFF' : '#0d131a' },
+                  {
+                    transform: [{
+                      rotate: menuAnim.interpolate({
+                        inputRange:  [0, 1],
+                        outputRange: ['0deg', '45deg'],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+            </Pressable>
+
+            {/* Message input */}
+            <TextInput
+              style={[styles.textInput, !isDark && { backgroundColor: '#F5F5F5', color: '#0d131a', borderColor: 'rgba(0,0,0,0.12)' }]}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder={pendingAttachment ? 'Add a caption...' : 'Message HealthScan AI...'}
+              placeholderTextColor={!isDark ? '#9A9A9A' : colors.textSecondary}
+              returnKeyType="send"
+              onSubmitEditing={() => handleSend()}
+              onFocus={closeMenu}
+              blurOnSubmit={false}
+              multiline
+            />
+
+            {/* Upload / send button */}
+            <Pressable onPress={() => handleSend()} disabled={!canSend} hitSlop={4}>
+              <LinearGradient
+                colors={isDark ? ['#d3d5d4', '#b8babc'] : [palette.accent, '#D0D0D0']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+              >
+                <Image source={require('../../assets/BSubmit_Icon.png')} style={[styles.sendIcon, { tintColor: isDark ? '#FFFFFF' : '#0d131a' }]} />
+              </LinearGradient>
+            </Pressable>
+          </View>
+
         </View>
       </KeyboardAvoidingView>
     </View>

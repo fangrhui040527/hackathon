@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -14,12 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../constants/colors';
 import { useScan } from '../context/ScanContext';
 import Background3D from '../components/Background3D';
-
-// ─── Scanning frame constants ────────────────────────────────────────────────
-const FRAME_SIZE = 260;
-const CORNER_LEN = 28;
-const CORNER_W   = 3;
-const BRACKET_COLOR = '#7A3CF7';
+import { styles, FRAME_SIZE, CORNER_LEN, CORNER_W, BRACKET_COLOR } from './styles/ScanScreen.styles';
 
 // ─── Corner bracket (L-shaped) ──────────────────────────────────────────────
 function CornerBracket({ top, left }) {
@@ -53,12 +49,20 @@ export default function ScanScreen({ navigation }) {
 
   useEffect(() => {
     Animated.loop(
-      Animated.timing(scanAnim, {
-        toValue: FRAME_SIZE - 2,
-        duration: 2000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
+      Animated.sequence([
+        Animated.timing(scanAnim, {
+          toValue: FRAME_SIZE - 2,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanAnim, {
+          toValue: 0,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
     ).start();
   }, []);
 
@@ -109,7 +113,7 @@ export default function ScanScreen({ navigation }) {
             {permission.canAskAgain ? (
               <Pressable onPress={requestPermission} style={styles.permBtn}>
                 <LinearGradient
-                  colors={['#9B5DFF', '#7A3CF7']}
+                  colors={['#d3d5d4', '#b8babc']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.permBtnInner}
@@ -184,28 +188,41 @@ export default function ScanScreen({ navigation }) {
 
         {/* ── Bottom buttons ────────────────────────────────────────────── */}
         <View style={styles.bottomPanel}>
-          {/* Take Photo — primary gradient button */}
-          <Animated.View style={{ transform: [{ scale: pressScale }] }}>
-            <Pressable
-              onPress={handleTakePhoto}
-              onPressIn={onPressIn}
-              onPressOut={onPressOut}
-            >
-              <LinearGradient
-                colors={['#9B5DFF', '#7A3CF7']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.button}
-              >
-                <Text style={styles.buttonText}>📷  Take Photo</Text>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+          <View style={styles.bottomBtnsRow}>
 
-          {/* Upload Photo — outlined button */}
-          <Pressable onPress={handleUploadPhoto} style={styles.uploadBtn}>
-            <Text style={styles.uploadBtnText}>🖼️  Upload from Gallery</Text>
-          </Pressable>
+            {/* Take Photo — left, cyan gradient */}
+            <Animated.View style={[{ flex: 1 }, { transform: [{ scale: pressScale }] }]}>
+              <Pressable
+                onPress={handleTakePhoto}
+                onPressIn={onPressIn}
+                onPressOut={onPressOut}
+                style={{ flex: 1 }}
+              >
+                <LinearGradient
+                  colors={['#d3d5d4', '#b8babc']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.halfBtn, { flex: 1 }]}
+                >
+                  <Image
+                    source={require('../../assets/WCamera_Icon.png')}
+                    style={styles.cameraBtnIcon}
+                  />
+                  <Text style={styles.cameraBtnText}>Take Photo</Text>
+                </LinearGradient>
+              </Pressable>
+            </Animated.View>
+
+            {/* Upload — right, outlined */}
+            <Pressable onPress={handleUploadPhoto} style={styles.uploadBtn}>
+              <Image
+                source={require('../../assets/WImage_Icon.png')}
+                style={styles.uploadBtnIcon}
+              />
+              <Text style={styles.uploadBtnText}>Gallery</Text>
+            </Pressable>
+
+          </View>
 
           <Text style={styles.tip}>You can review the photo before sending</Text>
         </View>
@@ -214,167 +231,3 @@ export default function ScanScreen({ navigation }) {
     </View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeOverlay: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-
-  // ── Header ──
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(10,10,26,0.72)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  headerBtn: {
-    width: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backArrow: {
-    color: colors.textPrimary,
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: '200',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  appName: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  lastScanBtn: {
-    width: 44,
-    alignItems: 'flex-end',
-  },
-  lastScanText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-
-  // ── Center / frame ──
-  centerSection: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  scanFrame: {
-    width: FRAME_SIZE,
-    height: FRAME_SIZE,
-    overflow: 'hidden',
-  },
-  scanLine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: colors.cyan,
-    shadowColor: colors.cyan,
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  frameHint: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
-  },
-
-  // ── Corner brackets ──
-  bracketWrap: {
-    position: 'absolute',
-    width: CORNER_LEN,
-    height: CORNER_LEN,
-  },
-  bracketH: {
-    position: 'absolute',
-    width: CORNER_LEN,
-    height: CORNER_W,
-    backgroundColor: BRACKET_COLOR,
-    borderRadius: 2,
-  },
-  bracketV: {
-    position: 'absolute',
-    width: CORNER_W,
-    height: CORNER_LEN,
-    backgroundColor: BRACKET_COLOR,
-    borderRadius: 2,
-  },
-
-  // ── Bottom panel ──
-  bottomPanel: {
-    backgroundColor: 'rgba(10,10,26,0.88)',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    padding: 20,
-    gap: 12,
-  },
-  button: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  uploadBtn: {
-    height: 54,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadBtnText: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  tip: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    textAlign: 'center',
-  },
-
-  // ── Permission screen ──
-  permContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    gap: 16,
-  },
-  permEmoji: { fontSize: 64, marginBottom: 4 },
-  permTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  permBody:  { color: colors.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  permBtn:   { width: '100%', marginTop: 8, borderRadius: 16, overflow: 'hidden' },
-  permBtnInner: { paddingVertical: 16, alignItems: 'center', borderRadius: 16 },
-  permBtnText:  { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  permDenied:   { color: colors.warning, fontSize: 13, textAlign: 'center', lineHeight: 20, marginTop: 8 },
-});

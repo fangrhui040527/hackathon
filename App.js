@@ -2,6 +2,7 @@ import React from 'react';
 import { useFonts, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { Nunito_400Regular, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { ScanProvider } from './frontend/context/ScanContext';
+import { ThemeProvider } from './frontend/context/ThemeContext';
 import AppNavigator from './frontend/navigation/AppNavigator';
 import './global.css';
 
@@ -15,8 +16,10 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <ScanProvider>
-      <AppNavigator />
-    </ScanProvider>
+    <ThemeProvider>
+      <ScanProvider>
+        <AppNavigator />
+      </ScanProvider>
+    </ThemeProvider>
   );
 }

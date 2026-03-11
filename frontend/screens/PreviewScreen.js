@@ -15,9 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../constants/colors';
 import { useScan } from '../context/ScanContext';
-import Background3D from '../components/Background3D';
+import FoodBackground from '../components/FoodBackground';
+import { styles } from './styles/PreviewScreen.styles';
 
 const CHECKLIST = [
   'Nutrition label or ingredients list is visible',
@@ -61,7 +61,7 @@ export default function PreviewScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Background3D />
+      <FoodBackground />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
@@ -137,7 +137,7 @@ export default function PreviewScreen({ navigation }) {
         {/* ── Bottom buttons ────────────────────────────────────────────── */}
         <View style={styles.buttons}>
           <Pressable onPress={handleRetake} style={styles.retakeBtn}>
-            <Text style={styles.retakeBtnText}>🔄 Retake</Text>
+            <Text style={styles.retakeBtnText}>Retake</Text>
           </Pressable>
 
           <Pressable
@@ -146,7 +146,7 @@ export default function PreviewScreen({ navigation }) {
             style={styles.sendWrapper}
           >
             <LinearGradient
-              colors={isSending ? ['#5A2DB7', '#5A2DB7'] : ['#9B5DFF', '#7A3CF7']}
+              colors={isSending ? ['rgba(211,213,212,0.3)', 'rgba(211,213,212,0.3)'] : ['#d3d5d4', '#b8babc']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.sendBtn}
@@ -159,7 +159,7 @@ export default function PreviewScreen({ navigation }) {
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.sendBtnText}>✅ Send for Analysis</Text>
+                <Text style={styles.sendBtnText}>Send for Analysis</Text>
               )}
             </LinearGradient>
           </Pressable>
@@ -199,7 +199,7 @@ export default function PreviewScreen({ navigation }) {
               value={draftNote}
               onChangeText={setDraftNote}
               placeholder="e.g. I am diabetic, I have high blood pressure..."
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#6B7280"
               multiline
               maxLength={200}
               textAlignVertical="top"
@@ -208,7 +208,7 @@ export default function PreviewScreen({ navigation }) {
 
             <Pressable onPress={handleSaveNote}>
               <LinearGradient
-                colors={['#9B5DFF', '#7A3CF7']}
+                colors={['#d3d5d4', '#b8babc']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.modalSaveBtn}
@@ -222,263 +222,3 @@ export default function PreviewScreen({ navigation }) {
     </View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-
-  // ── Header ──
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  backBtn: {
-    width: 40,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  backArrow: {
-    color: colors.textPrimary,
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: '200',
-  },
-  headerTitle: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-
-  // ── Scroll ──
-  scroll: {
-    padding: 20,
-    gap: 16,
-  },
-
-  // ── Image preview ──
-  imageOuter: {
-    borderRadius: 20,
-    // Shadow on outer view (not clipped)
-    shadowColor: '#7A3CF7',
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 12,
-  },
-  imageInner: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    height: 280,
-    backgroundColor: '#12122A',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  imagePlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderEmoji: {
-    fontSize: 72,
-  },
-
-  // ── Checklist card ──
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  checkRowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  checkMark: {
-    fontSize: 16,
-  },
-  checkText: {
-    flex: 1,
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-
-  // ── Health note section ──
-  noteSection: {
-    gap: 10,
-  },
-  noteSectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  noteSectionLabel: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  editBtn: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  noteCard: {
-    backgroundColor: '#1A0A2E',
-    borderWidth: 1,
-    borderColor: 'rgba(195,166,255,0.3)',
-    borderRadius: 14,
-    padding: 14,
-    gap: 8,
-  },
-  noteCardText: {
-    color: '#C3A6FF',
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  editHint: {
-    color: 'rgba(195,166,255,0.45)',
-    fontSize: 11,
-  },
-  noNoteRow: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 14,
-  },
-  noNoteText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
-
-  // ── Bottom buttons ──
-  buttons: {
-    padding: 20,
-    paddingTop: 14,
-    gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  retakeBtn: {
-    height: 54,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retakeBtnText: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sendWrapper: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  sendBtn: {
-    height: 54,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sendingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  sendingText: {
-    opacity: 0.85,
-  },
-
-  // ── Modal (bottom sheet) ──
-  modalOuter: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  modalSheet: {
-    backgroundColor: '#16162E',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: colors.border,
-    padding: 24,
-    gap: 14,
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 99,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'center',
-    marginBottom: 6,
-  },
-  modalTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  modalSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: -4,
-  },
-  modalInput: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 14,
-    padding: 14,
-    color: colors.textPrimary,
-    fontSize: 14,
-    minHeight: 100,
-    maxHeight: 160,
-  },
-  modalSaveBtn: {
-    height: 54,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalSaveText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});
