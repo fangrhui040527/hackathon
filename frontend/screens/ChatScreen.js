@@ -337,7 +337,14 @@ export default function ChatScreen({ navigation, route }) {
       pollingInterval: 0,
     });
 
+    // Timeout: if no event arrives within 15s, backend is likely unreachable
+    let connectTimeout = setTimeout(() => {
+      es.close();
+      fallbackToError(analyzingId);
+    }, 15000);
+
     es.addEventListener('stage', (event) => {
+      if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
       try {
         const payload = JSON.parse(event.data);
         handleSSEEvent(analyzingId, 'stage', payload);
@@ -348,6 +355,7 @@ export default function ChatScreen({ navigation, route }) {
     });
 
     es.addEventListener('error', (event) => {
+      if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
       if (event.data) {
         try {
           const payload = JSON.parse(event.data);

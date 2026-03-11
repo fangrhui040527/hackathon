@@ -40,12 +40,9 @@ Start-Sleep -Milliseconds 500
 Write-Host ""
 Write-Host "Backend started on port 8000!" -ForegroundColor Green
 Write-Host ""
-Write-Host "  API + all agents:   http://localhost:8000" -ForegroundColor White
-Write-Host "    Doctor:           /agent/doctor/analyze" -ForegroundColor DarkGray
-Write-Host "    Fitness:          /agent/fitness/analyze" -ForegroundColor DarkGray
-Write-Host "    Health:           /agent/health/analyze" -ForegroundColor DarkGray
-Write-Host "    Nutritionist:     /agent/nutritionist/analyze" -ForegroundColor DarkGray
-Write-Host "    Chemi:            /agent/chemi/analyze" -ForegroundColor DarkGray
+Write-Host "  API:        http://localhost:8000" -ForegroundColor White
+Write-Host "  Health:     http://localhost:8000/api/health" -ForegroundColor DarkGray
+Write-Host "  Analyze:    POST http://localhost:8000/api/analyze" -ForegroundColor DarkGray
 Write-Host ""
 
 # Start Expo frontend
