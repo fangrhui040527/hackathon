@@ -25,7 +25,7 @@ const STAGES = [
   { id: 'agent3',   icon: '⚗️',  label: 'Dr. Kim checking chemicals...', duration: 1400 },
   { id: 'agent4',   icon: '💪', label: 'Marcus assessing fitness...',   duration: 1200 },
   { id: 'agent5',   icon: '🏥', label: 'Dr. Amara reviewing risks...',  duration: 1300 },
-  { id: 'agent6',   icon: '🕌', label: 'Checking compliance...',        duration: 1200 },
+  { id: 'agent6',   icon: '🕌', label: 'Dr. Nixon checking compliance...',  duration: 1200 },
   { id: 'conclude', icon: '🧠', label: 'Summarizing findings...',        duration: 1600 },
   { id: 'done',     icon: '✅', label: 'Done!',                          duration: 0    },
 ];

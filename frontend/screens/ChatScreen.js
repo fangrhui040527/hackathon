@@ -38,7 +38,7 @@ const PIPELINE_STAGES = [
   { icon: '⚗️',  label: 'Dr. Kim',                   detail: 'Chemist scanning for additives & preservatives...', duration: 1200 },
   { icon: '💪', label: 'Marcus',                     detail: 'Fitness expert evaluating glycaemic impact...',    duration: 1000 },
   { icon: '🏥', label: 'Dr. Amara',                  detail: 'Healthcare specialist checking long-term risks...', duration: 1100 },
-  { icon: '🕌', label: 'Compliance',                 detail: 'Checking religious and ethical compliance...',     duration: 1000 },
+  { icon: '🕌', label: 'Dr. Nixon',                  detail: 'Checking religious and ethical compliance...',     duration: 1000 },
   { icon: '🧠', label: 'Summarizing',                detail: 'Combining all specialist findings...',             duration: 1300 },
 ];
 
@@ -309,7 +309,7 @@ export default function ChatScreen({ navigation, route }) {
     });
 
     // Timeout: if no event arrives within 120s, backend is likely unreachable
-    // (the full pipeline — OCR + 5 agents + conclusion — can take 30‒90s)
+    // (the full pipeline — OCR + 6 agents + conclusion — can take 30‑90s)
     let connectTimeout = setTimeout(() => {
       es.close();
       fallbackToError(analyzingId);
@@ -575,7 +575,7 @@ export default function ChatScreen({ navigation, route }) {
               <View style={styles.emptyFeatures}>
                 {[
                   { icon: '🔬', label: 'Ingredient Scanner' },
-                  { icon: '🩺', label: '5 AI Specialists' },
+                  { icon: '🩺', label: '6 AI Specialists' },
                   { icon: '📊', label: 'Nutrition Insights' },
                 ].map((f, i) => (
                   <View key={i} style={[styles.featurePill, !isDark && { backgroundColor: palette.surface2 }]}>

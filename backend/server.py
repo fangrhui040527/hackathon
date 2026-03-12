@@ -52,7 +52,7 @@ AGENTS = [
     {"name": "foodchemist-agent",         "version": "8",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
     {"name": "fitnessCoach-agent",        "version": "7",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
     {"name": "healthSpecialist-agent",    "version": "6",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
-    {"name": "cultural-religious-compliance-agent", "version": "7", "label": "Compliance Specialist", "display": "🕌 Checking religious and ethical compliance..."},
+    {"name": "cultural-religious-compliance-agent", "version": "7", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
 ]
 CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "7"}
 
