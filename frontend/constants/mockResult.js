@@ -110,5 +110,18 @@ export const MOCK_RESULT = {
       confidence: 86,
       considered_health_note: true,
     },
+    {
+      agentId: 6,
+      verdict: 'caution',
+      summary:
+        'Oreo cookies contain no explicitly Haram ingredients, but the source of ' +
+        'mono- and diglycerides and natural flavors is unverified — they may be ' +
+        'animal-derived. Oreos are not certified Halal or Kosher in all markets. ' +
+        'They are not vegan due to potential cross-contact with milk during ' +
+        'manufacturing ("may contain milk" warning).',
+      flags: ['Halal status uncertain', 'Not certified vegan', 'Cross-contact risk', 'Verify local certification'],
+      confidence: 74,
+      considered_health_note: false,
+    },
   ],
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { colors } from '../constants/colors';
 import VerdictBadge from './VerdictBadge';
 import ConfidenceMeter from './ConfidenceMeter';
@@ -65,7 +66,7 @@ export default function AgentCard({ agent, output, delay = 0 }) {
 
       {/* Summary */}
       {summary ? (
-        <Text style={styles.summary}>{summary}</Text>
+        <Markdown style={mdStyles}>{summary}</Markdown>
       ) : null}
 
       {/* Flag chips */}
@@ -154,3 +155,73 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 });
+
+const mdStyles = {
+  body: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  strong: {
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  em: {
+    fontStyle: 'italic',
+    color: colors.textPrimary,
+  },
+  bullet_list: {
+    marginVertical: 4,
+  },
+  ordered_list: {
+    marginVertical: 4,
+  },
+  list_item: {
+    marginVertical: 2,
+  },
+  bullet_list_icon: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginRight: 6,
+  },
+  heading1: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    marginVertical: 4,
+  },
+  heading2: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginVertical: 3,
+  },
+  heading3: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    marginVertical: 2,
+  },
+  paragraph: {
+    marginVertical: 2,
+  },
+  code_inline: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    color: colors.textPrimary,
+    fontSize: 12,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+  },
+  fence: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    color: colors.textPrimary,
+    fontSize: 12,
+    borderRadius: 8,
+    padding: 8,
+    marginVertical: 4,
+  },
+  link: {
+    color: '#6C9CFF',
+  },
+};

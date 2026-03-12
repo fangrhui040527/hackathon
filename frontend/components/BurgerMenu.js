@@ -179,7 +179,7 @@ export default function BurgerMenu({ visible, onClose, navigation, onClearChat }
 
             <View style={{ flex: 1, gap: 3 }}>
               <Text style={[s.appName, { color: appNameColor }]}>HealthScan AI</Text>
-              <Text style={[s.versionText, { color: versionColor }]}>5 AI Agents</Text>
+              <Text style={[s.versionText, { color: versionColor }]}>6 AI Agents</Text>
             </View>
 
             <Pressable onPress={onClose} style={[s.closeBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]} hitSlop={8}>

@@ -38,6 +38,7 @@ const PIPELINE_STAGES = [
   { icon: '⚗️',  label: 'Dr. Kim',                   detail: 'Chemist scanning for additives & preservatives...', duration: 1200 },
   { icon: '💪', label: 'Marcus',                     detail: 'Fitness expert evaluating glycaemic impact...',    duration: 1000 },
   { icon: '🏥', label: 'Dr. Amara',                  detail: 'Healthcare specialist checking long-term risks...', duration: 1100 },
+  { icon: '🕌', label: 'Dr. Nixon',                  detail: 'Checking religious and ethical compliance...',     duration: 1000 },
   { icon: '🧠', label: 'Summarizing',                detail: 'Combining all specialist findings...',             duration: 1300 },
 ];
 
@@ -49,52 +50,11 @@ const SUGGESTIONS = [
   'How much is too much?',
 ];
 
-// ─── Mock text response ───────────────────────────────────────────────────────
-function getMockResponse(message) {
-  const lower = message.toLowerCase();
-  if (/kid|child|children/.test(lower)) {
-    return (
-      'Based on the analysis, here are the guidelines for children:\n\n' +
-      '• Check the sugar content — keep under 10 g per serving\n' +
-      '• Once-a-week treat if high sugar, not daily\n' +
-      '• Pair snacks with protein to slow sugar absorption\n' +
-      '• Under 5 years old — stick to whole foods\n\n' +
-      'Scan a product to get a personalized assessment 😊'
-    );
-  }
-  if (/instead|alternative/.test(lower)) {
-    return (
-      'Better snack options with similar satisfaction:\n\n' +
-      '• Dark chocolate (70%+) — less sugar, antioxidants\n' +
-      '• Rice cakes with peanut butter — protein + crunch\n' +
-      '• Fresh fruit with yogurt — natural sugars + fiber\n' +
-      '• Nuts and dried fruit — energy without the crash 🥜'
-    );
-  }
-  if (/ingredient/.test(lower)) {
-    return (
-      'I can analyze ingredients once you scan a product label.\n\n' +
-      'Common things I look for:\n' +
-      '• Synthetic additives & preservatives\n' +
-      '• High-risk emulsifiers\n' +
-      '• Hidden sugars under alternate names\n' +
-      '• IARC-classified carcinogens\n\n' +
-      'Take a photo of a nutrition label to get started 🔬'
-    );
-  }
-  if (/how much|too much/.test(lower)) {
-    return (
-      'Safe consumption depends on the specific product.\n\n' +
-      'General guidelines:\n' +
-      '• Check sugar: keep under 25 g/day total (women) or 36 g/day (men)\n' +
-      '• Watch sodium: under 2300 mg/day\n' +
-      '• Limit ultra-processed (NOVA 4) foods to occasional treats\n\n' +
-      'Scan a label and I\'ll give you specific guidance 📊'
-    );
-  }
+// ─── Fallback text when no scan result is available ──────────────────────────
+function getNoScanFallback() {
   return (
     'I\'m here to help analyze your food products!\n\n' +
-    'Scan a nutrition label or ask me about ingredients, nutrition, or healthier alternatives 😊'
+    'Scan a nutrition label first, then ask me about ingredients, nutrition, or healthier alternatives 😊'
   );
 }
 
@@ -299,8 +259,19 @@ export default function ChatScreen({ navigation, route }) {
   // ── Stage name → pipeline index mapping ──────────────────────────────────────
   const STAGE_MAP = {
     upload: 0, extract: 1, grounding: 1,
-    agent1: 2, agent2: 3, agent3: 4, agent4: 5, agent5: 6,
-    conclude: 7, done: 8,
+    agents: 2,
+    agent1: 2, agent2: 3, agent3: 4, agent4: 5, agent5: 6, agent6: 7,
+    conclude: 8, done: 9,
+  };
+
+  // Map backend agent names to pipeline stage indices
+  const AGENT_DONE_MAP = {
+    'doctor-agent': 2,
+    'nutritionist-agent': 3,
+    'foodchemist-agent': 4,
+    'fitnessCoach-agent': 5,
+    'healthSpecialist-agent': 6,
+    'cultural-religious-compliance-agent': 7,
   };
 
   // ── Analysis pipeline (real SSE to backend) ─────────────────────────────────
@@ -337,11 +308,17 @@ export default function ChatScreen({ navigation, route }) {
       pollingInterval: 0,
     });
 
-    // Timeout: if no event arrives within 15s, backend is likely unreachable
+    // Timeout: if no event arrives within 120s, backend is likely unreachable
+    // (the full pipeline — OCR + 6 agents + conclusion — can take 30‑90s)
     let connectTimeout = setTimeout(() => {
       es.close();
       fallbackToError(analyzingId);
-    }, 15000);
+    }, 120000);
+
+    // Clear timeout as soon as the SSE connection opens
+    es.addEventListener('open', () => {
+      if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+    });
 
     es.addEventListener('stage', (event) => {
       if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
@@ -377,7 +354,13 @@ export default function ChatScreen({ navigation, route }) {
       return;
     }
 
-    const stageIndex = STAGE_MAP[payload.stage] ?? 0;
+    let stageIndex;
+    if (payload.stage === 'agent_done' && payload.agent) {
+      // Map individual agent completion to the correct pipeline step
+      stageIndex = AGENT_DONE_MAP[payload.agent] ?? STAGE_MAP[payload.stage] ?? 0;
+    } else {
+      stageIndex = STAGE_MAP[payload.stage] ?? 0;
+    }
 
     if (payload.stage === 'done' && payload.data) {
       // Pipeline complete — replace analyzing with result
@@ -390,11 +373,13 @@ export default function ChatScreen({ navigation, route }) {
         ),
       );
     } else {
-      // Update stage progress
+      // Update stage progress — only advance forward, never backwards
       setMessages(prev =>
-        prev.map(m =>
-          m.id === analyzingId ? { ...m, stageIndex } : m,
-        ),
+        prev.map(m => {
+          if (m.id !== analyzingId) return m;
+          const newIndex = Math.max(m.stageIndex ?? 0, stageIndex);
+          return { ...m, stageIndex: newIndex };
+        }),
       );
     }
   };
@@ -410,8 +395,21 @@ export default function ChatScreen({ navigation, route }) {
     );
   };
 
-  // ── Send text message ───────────────────────────────────────────────────────
-  const handleSend = (textOverride) => {
+  // ── Build chat_history array from messages state (for the API) ──────────────
+  const buildChatHistory = () => {
+    const history = [];
+    for (const msg of messages) {
+      if (msg.type === 'user_text') {
+        history.push({ role: 'user', content: msg.text });
+      } else if (msg.type === 'ai_text') {
+        history.push({ role: 'assistant', content: msg.text });
+      }
+    }
+    return history;
+  };
+
+  // ── Send text message (calls /api/followup when a scan result exists) ───────
+  const handleSend = async (textOverride) => {
     // Pending image attachment takes priority
     if (textOverride === undefined && pendingAttachment) {
       handleSendWithAttachment();
@@ -429,14 +427,46 @@ export default function ChatScreen({ navigation, route }) {
     ]);
     setIsTyping(true);
 
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => {
+    // If no scan result yet, show a prompt to scan first
+    if (!result) {
       setIsTyping(false);
       setMessages(prev => [
         ...prev,
-        { id: String(Date.now() + 1), type: 'ai_text', text: getMockResponse(trimmed) },
+        { id: String(Date.now() + 1), type: 'ai_text', text: getNoScanFallback() },
       ]);
-    }, 1400);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/followup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scan_context: result,
+          chat_history: buildChatHistory(),
+          new_message: trimmed,
+        }),
+      });
+
+      const data = await res.json();
+      const reply = data.reply || data.error || 'Sorry, something went wrong.';
+
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev,
+        { id: String(Date.now() + 1), type: 'ai_text', text: reply },
+      ]);
+    } catch (err) {
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: String(Date.now() + 1),
+          type: 'ai_text',
+          text: 'Could not reach the server. Please check your connection and try again.',
+        },
+      ]);
+    }
   };
 
   // ── Gallery pick from input bar ─────────────────────────────────────────────
@@ -501,7 +531,7 @@ export default function ChatScreen({ navigation, route }) {
           <View style={styles.headerCenter}>
             <Text style={[styles.headerTitle, !isDark && { color: palette.text1 }]}>HealthScan AI</Text>
             <Text style={[styles.headerSub, !isDark && { color: palette.text2 }]} numberOfLines={1}>
-              {result ? result.product : 'Powered by 5 AI specialists'}
+              {result ? result.product : 'Powered by 6 AI specialists'}
             </Text>
           </View>
 
@@ -545,7 +575,7 @@ export default function ChatScreen({ navigation, route }) {
               <View style={styles.emptyFeatures}>
                 {[
                   { icon: '🔬', label: 'Ingredient Scanner' },
-                  { icon: '🩺', label: '5 AI Specialists' },
+                  { icon: '🩺', label: '6 AI Specialists' },
                   { icon: '📊', label: 'Nutrition Insights' },
                 ].map((f, i) => (
                   <View key={i} style={[styles.featurePill, !isDark && { backgroundColor: palette.surface2 }]}>

@@ -22,8 +22,10 @@ load_dotenv()
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 
+from pydantic import BaseModel
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from content_understanding import analyze_food_image, is_service_configured
@@ -45,13 +47,14 @@ app.add_middleware(
 
 # ── Foundry agent definitions ───────────────────────────────────────────
 AGENTS = [
-    {"name": "doctor-agent",              "version": "11", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
-    {"name": "nutritionist-agent",        "version": "4",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
-    {"name": "foodchemist-agent",         "version": "3",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
-    {"name": "fitnessCoach-agent",        "version": "4",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
-    {"name": "healthSpecialist-agent",    "version": "3",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
+    {"name": "doctor-agent",              "version": "16", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
+    {"name": "nutritionist-agent",        "version": "7",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
+    {"name": "foodchemist-agent",         "version": "8",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
+    {"name": "fitnessCoach-agent",        "version": "7",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
+    {"name": "healthSpecialist-agent",    "version": "6",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
+    {"name": "cultural-religious-compliance-agent", "version": "7", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
 ]
-CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "3"}
+CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "7"}
 
 
 def _extract_product_name(food_data: dict) -> str:
@@ -179,10 +182,23 @@ def _build_result_from_responses(
             "considered_health_note": has_health_note,
         })
 
+    # Extract compliance data from conclusion JSON if available
+    # The agent may return expert_breakdown.compliance as a string or a dict
+    compliance_data = None
+    compliance_text = None
+    if conclusion_json:
+        eb = conclusion_json.get("expert_breakdown", {})
+        if isinstance(eb, dict):
+            raw_compliance = eb.get("compliance")
+            if isinstance(raw_compliance, dict):
+                compliance_data = raw_compliance
+            elif isinstance(raw_compliance, str):
+                compliance_text = raw_compliance
+
     # Overall verdict — prefer conclusion agent's verdict_color
     if conclusion_json and conclusion_json.get("verdict_color"):
         color = conclusion_json["verdict_color"].lower()
-        overall_verdict = {"red": "avoid", "green": "safe"}.get(color, "caution")
+        overall_verdict = {"red": "avoid", "green": "safe", "yellow": "caution"}.get(color, "caution")
     else:
         verdicts = [a["verdict"] for a in agent_outputs]
         if verdicts.count("avoid") >= 3:
@@ -191,6 +207,19 @@ def _build_result_from_responses(
             overall_verdict = "safe"
         else:
             overall_verdict = "caution"
+
+    # Compliance override: Haram or Non-Vegan flags force AVOID
+    # Handle structured dict format
+    if compliance_data and isinstance(compliance_data, dict):
+        halal = (compliance_data.get("halal_status") or "").lower()
+        vegan = (compliance_data.get("vegan_status") or "").lower()
+        if halal in ("haram", "non-halal") or vegan in ("non-vegan", "not vegan"):
+            overall_verdict = "avoid"
+    # Handle string format from expert_breakdown
+    elif compliance_text:
+        ct_lower = compliance_text.lower()
+        if "haram" in ct_lower or "non-halal" in ct_lower or "non-vegan" in ct_lower or "not vegan" in ct_lower:
+            overall_verdict = "avoid"
 
     # Use conclusion agent's structured fields when available
     if conclusion_json:
@@ -208,7 +237,7 @@ def _build_result_from_responses(
         elif overall_verdict == "caution":
             avoid_if = ["Those with sensitive health conditions"]
 
-    return {
+    result = {
         "product": product_name,
         "type": "Food Product",
         "servingSize": food_data.get("serving_size", ""),
@@ -224,6 +253,19 @@ def _build_result_from_responses(
         },
         "agentOutputs": agent_outputs,
     }
+
+    # Attach compliance breakdown when available
+    if compliance_data and isinstance(compliance_data, dict):
+        result["compliance"] = {
+            "halal_status": compliance_data.get("halal_status", "Unknown"),
+            "vegan_status": compliance_data.get("vegan_status", "Unknown"),
+            "flagged_ingredients": compliance_data.get("flagged_ingredients", []),
+            "notes": compliance_data.get("notes", ""),
+        }
+    elif compliance_text:
+        result["compliance"] = {"summary": compliance_text}
+
+    return result
 
 
 @app.get("/api/health")
@@ -249,25 +291,59 @@ def _build_task_prompt(food_data: dict, health_note: str = "") -> str:
 
 def _call_foundry_agent(agent_def: dict, prompt: str) -> dict:
     """
-    Synchronous one-shot call to a Foundry agent via openai_client.responses.create.
+    Call a Foundry agent via openai_client.responses.create with MCP tool approval loop.
+    Agents may request MCP tool access (e.g. knowledge base retrieval) which requires
+    explicit approval before they can produce their analysis text.
     Designed to be wrapped with asyncio.to_thread for parallel execution.
     Returns a result dict; on failure returns an error marker so other agents aren't affected.
     """
+    agent_ref = {
+        "agent_reference": {
+            "name": agent_def["name"],
+            "version": agent_def["version"],
+            "type": "agent_reference",
+        }
+    }
     try:
         response = _openai_client.responses.create(
             input=[{"role": "user", "content": prompt}],
-            extra_body={
-                "agent_reference": {
-                    "name": agent_def["name"],
-                    "version": agent_def["version"],
-                    "type": "agent_reference",
-                }
-            },
+            extra_body=agent_ref,
         )
+
+        # MCP tool approval loop — agents with knowledge bases need approval
+        # before they can query their tools and produce analysis text.
+        for iteration in range(5):
+            if response.output_text:
+                break  # Agent produced text, we're done
+
+            approvals = [
+                item for item in (response.output or [])
+                if item.type == "mcp_approval_request"
+            ]
+            if not approvals:
+                break  # No pending approvals and no text — agent is done
+
+            print(f"[Agent MCP] {agent_def['name']}: approving {len(approvals)} tool request(s) (iteration {iteration+1})")
+            approval_inputs = [
+                {
+                    "type": "mcp_approval_response",
+                    "approval_request_id": item.id,
+                    "approve": True,
+                }
+                for item in approvals
+            ]
+            response = _openai_client.responses.create(
+                input=approval_inputs,
+                extra_body=agent_ref,
+                previous_response_id=response.id,
+            )
+
+        out = response.output_text
+        print(f"[Agent OK] {agent_def['name']}: output_text length={len(out) if out else 0}, first 200 chars={repr((out or '')[:200])}")
         return {
             "agent_name": agent_def["name"],
             "label": agent_def.get("label", agent_def["name"]),
-            "text": response.output_text,
+            "text": out,
         }
     except Exception as e:
         print(f"[Agent Error] {agent_def['name']}: {type(e).__name__}: {e}")
@@ -287,7 +363,7 @@ async def analyze(
     """
     Analyze a food image through the full pipeline, streaming SSE events.
 
-    Flow: upload → extract (CU) → 5 agents (parallel) → conclusion → done
+    Flow: upload → extract (CU) → 6 agents (parallel) → conclusion → done
     """
     async def event_generator():
         try:
@@ -321,7 +397,7 @@ async def analyze(
             for agent_def in AGENTS:
                 yield {"event": "stage", "data": json.dumps({"stage": "agents", "label": agent_def["display"]})}
 
-            # Fire all 5 agents in parallel using asyncio.to_thread
+            # Fire all 6 agents in parallel using asyncio.to_thread
             agent_futures = [
                 asyncio.to_thread(_call_foundry_agent, agent_def, task_prompt)
                 for agent_def in AGENTS
@@ -358,6 +434,7 @@ async def analyze(
                 "foodchemist-agent": "Chemist",
                 "fitnessCoach-agent": "Fitness",
                 "healthSpecialist-agent": "Health Specialist",
+                "cultural-religious-compliance-agent": "Compliance Specialist",
             }
             expert_sections = []
             for r in agent_results:
@@ -368,7 +445,14 @@ async def analyze(
             conclusion_prompt = (
                 f"ORIGINAL SCANNED LABEL TEXT:\n{ocr_text}\n\n"
                 f"EXPERT REPORTS:\n" + "\n\n".join(expert_sections) + "\n\n"
-                "Please synthesize this into the final JSON verdict."
+                "Synthesize these reports into your final JSON verdict.\n"
+                "Apply the Hierarchical Priority Matrix:\n"
+                "1. Doctor (Medical Safety) — any medical red flag → RED (AVOID).\n"
+                "2. Compliance (Religious/Ethical) — any Haram, Non-Halal, or Non-Vegan \n"
+                "   violation for the user → RED (AVOID) regardless of nutritional score.\n"
+                "3. Chemist (Banned/Prohibited substances) → RED (AVOID).\n"
+                "4. Nutrition/Fitness/Holistic (Quality) — factor only after 1-3 are clear.\n\n"
+                "Return ONLY valid JSON, no markdown fences."
             )
 
             conclusion_result = await asyncio.to_thread(
@@ -393,6 +477,98 @@ async def analyze(
             yield {"event": "error", "data": json.dumps({"error": str(e)})}
 
     return EventSourceResponse(event_generator())
+
+
+# ── Follow-up chat ("Cheat Sheet" + "Two Hats" pattern) ────────────────
+#
+# "Cheat Sheet":  We pass the full Result JSON so the agent has complete
+#                  context without re-running the 6-agent pipeline.
+# "Two Hats":     We dynamically swap the ConclusionAdvisor's behaviour
+#                  from its default JSON-output mode to a warm, conversational
+#                  "Chat Hat" via the system prompt below.
+# ────────────────────────────────────────────────────────────────────────
+
+CHAT_HAT_SYSTEM_PROMPT = (
+    "You are the HealthLens Assistant, acting as the lead medical and nutritional "
+    "advisor. The user has just scanned a food product. You will be provided with "
+    "the 'Result JSON' (the scan context) and the 'Chat History'. "
+    "Use ONLY the data within this JSON to answer the user's questions. "
+    "Tone: Warm, authoritative, clear, and highly empathetic. "
+    "Format: normal conversational text. DO NOT output JSON. "
+    "If a question is outside the provided data, gracefully state that the "
+    "initial scan did not analyze that specific metric. "
+    "Safety First: Remind them to consult a physician for medical questions, "
+    "referencing Dr. Chen's clinical warnings if applicable."
+)
+
+
+class ChatMessage(BaseModel):
+    role: str   # "user" or "assistant"
+    content: str
+
+
+class FollowUpRequest(BaseModel):
+    scan_context: dict              # The full Result JSON from the initial scan
+    chat_history: list[ChatMessage] # Previous conversation turns
+    new_message: str                # The user's latest question
+
+
+@app.post("/api/followup")
+async def followup_chat(payload: FollowUpRequest):
+    """
+    Follow-up Q&A powered by ConclusionAdvisor ("Chat Hat" mode).
+
+    Instead of re-running the full pipeline, we pass the original scan result
+    (the "cheat sheet") plus the conversation history so the agent has full
+    context to answer the user's follow-up questions conversationally.
+    """
+    cheat_sheet = json.dumps(payload.scan_context, indent=2, ensure_ascii=False)
+
+    # ── Message array construction ───────────────────────────────────
+    # 1. "Chat Hat" system prompt — overrides the agent's default JSON behaviour
+    # 2. Cheat sheet injected as a user→assistant exchange so the agent
+    #    "remembers" the scan without the user having to repeat it
+    # 3. Prior conversation turns (chat_history)
+    # 4. The new user question
+    messages = [
+        {"role": "user",      "content": CHAT_HAT_SYSTEM_PROMPT},
+        {"role": "assistant", "content": "Understood. I will answer conversationally "
+                                          "using only the scan data, maintaining a "
+                                          "warm and empathetic tone. I will not output JSON."},
+        {"role": "user",      "content": f"Here is the scan result (cheat sheet):\n"
+                                          f"```json\n{cheat_sheet}\n```"},
+        {"role": "assistant", "content": "Got it — I've reviewed the full scan result and "
+                                          "I'm ready to answer your questions about this product."},
+    ]
+
+    # Append prior conversation turns
+    for msg in payload.chat_history:
+        messages.append({"role": msg.role, "content": msg.content})
+
+    # Append the new question
+    messages.append({"role": "user", "content": payload.new_message})
+
+    try:
+        response = await asyncio.to_thread(
+            _openai_client.responses.create,
+            input=messages,
+            extra_body={
+                "agent_reference": {
+                    "name": CONCLUSION_AGENT["name"],
+                    "version": CONCLUSION_AGENT["version"],
+                    "type": "agent_reference",
+                }
+            },
+        )
+        reply = response.output_text or "I'm sorry, I couldn't generate a response."
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=502,
+            content={"error": f"Agent call failed: {str(e)}"},
+        )
+
+    return {"reply": reply}
 
 
 if __name__ == "__main__":

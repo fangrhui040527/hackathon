@@ -25,6 +25,7 @@ const STAGES = [
   { id: 'agent3',   icon: '⚗️',  label: 'Dr. Kim checking chemicals...', duration: 1400 },
   { id: 'agent4',   icon: '💪', label: 'Marcus assessing fitness...',   duration: 1200 },
   { id: 'agent5',   icon: '🏥', label: 'Dr. Amara reviewing risks...',  duration: 1300 },
+  { id: 'agent6',   icon: '🕌', label: 'Dr. Nixon checking compliance...',  duration: 1200 },
   { id: 'conclude', icon: '🧠', label: 'Summarizing findings...',        duration: 1600 },
   { id: 'done',     icon: '✅', label: 'Done!',                          duration: 0    },
 ];
@@ -141,6 +142,19 @@ const MOCK_RESULT = {
       flags: ['NOVA group 4', 'Microbiome disruption', 'Compulsive-eating risk', 'Longevity concern'],
       confidence: 86,
       considered_health_note: true,
+    },
+    {
+      agentId: 6,
+      verdict: 'caution',
+      summary:
+        'Oreo cookies contain no explicitly Haram ingredients, but the source of ' +
+        'mono- and diglycerides and natural flavors is unverified — they may be ' +
+        'animal-derived. Oreos are not certified Halal or Kosher in all markets. ' +
+        'They are not vegan due to potential cross-contact with milk during ' +
+        'manufacturing ("may contain milk" warning).',
+      flags: ['Halal status uncertain', 'Not certified vegan', 'Cross-contact risk', 'Verify local certification'],
+      confidence: 74,
+      considered_health_note: false,
     },
   ],
 };
