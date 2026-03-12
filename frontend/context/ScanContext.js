@@ -7,6 +7,7 @@ export function ScanProvider({ children }) {
   const [healthNote, setHealthNote] = useState('');
   const [result, setResult] = useState(null);
   const [stages, setStages] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState(null); // { id, name, backendId } or null for general advisor
 
   function updateStage(stageUpdate) {
     setStages(prev => {
@@ -22,7 +23,7 @@ export function ScanProvider({ children }) {
 
   return (
     <ScanContext.Provider
-      value={{ image, setImage, healthNote, setHealthNote, result, setResult, stages, updateStage }}
+      value={{ image, setImage, healthNote, setHealthNote, result, setResult, stages, updateStage, selectedAgent, setSelectedAgent }}
     >
       {children}
     </ScanContext.Provider>

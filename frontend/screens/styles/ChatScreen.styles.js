@@ -560,6 +560,47 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  // ── Agent selector pills ───────────────────────────────────────────────
+  agentPillsScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+    backgroundColor: SURFACE,
+  },
+  agentPillsRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  agentPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: SURFACE2,
+    borderWidth: 1,
+    borderColor: BORDER_MED,
+    borderRadius: 99,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+  },
+  agentPillActive: {
+    backgroundColor: 'rgba(211,213,212,0.14)',
+    borderColor: WHITESILVER_BORDER,
+  },
+  agentPillEmoji: {
+    fontSize: 14,
+  },
+  agentPillText: {
+    color: TEXT_2,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  agentPillTextActive: {
+    color: WHITESILVER,
+    fontWeight: '700',
+  },
+
   textInput: {
     flex: 1,
     minHeight: 44,

@@ -153,7 +153,7 @@ function FunFacts({ facts = [] }) {
 }
 
 // E) Specialists
-function Specialists({ agentOutputs = [] }) {
+function Specialists({ agentOutputs = [], onChatWithAgent }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>🧑‍⚕️ What our specialists said</Text>
@@ -169,6 +169,7 @@ function Specialists({ agentOutputs = [] }) {
             agent={agent}
             output={output}
             delay={i * 150}
+            onChat={onChatWithAgent}
           />
         );
       })}
@@ -178,7 +179,7 @@ function Specialists({ agentOutputs = [] }) {
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function ResultScreen({ navigation }) {
-  const { image, healthNote, result } = useScan();
+  const { image, healthNote, result, setSelectedAgent } = useScan();
 
   const timestamp = useRef(
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -199,6 +200,11 @@ export default function ResultScreen({ navigation }) {
   }
 
   const { product, type, servingSize, nutrition, conclusion, agentOutputs, funFacts } = result;
+
+  const handleChatWithAgent = (agent) => {
+    setSelectedAgent(agent);
+    navigation.navigate('Chat', { agentChat: true });
+  };
 
   return (
     <View style={styles.container}>
@@ -249,7 +255,7 @@ export default function ResultScreen({ navigation }) {
           <FunFacts facts={funFacts} />
 
           {/* ── E: Specialists ────────────────────────────────────────── */}
-          <Specialists agentOutputs={agentOutputs} />
+          <Specialists agentOutputs={agentOutputs} onChatWithAgent={handleChatWithAgent} />
 
           <View style={{ height: 40 }} />
         </ScrollView>

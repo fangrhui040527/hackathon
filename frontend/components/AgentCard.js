@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { colors } from '../constants/colors';
 import VerdictBadge from './VerdictBadge';
 import ConfidenceMeter from './ConfidenceMeter';
 
-export default function AgentCard({ agent, output, delay = 0 }) {
+export default function AgentCard({ agent, output, delay = 0, onChat }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -82,6 +82,16 @@ export default function AgentCard({ agent, output, delay = 0 }) {
 
       {/* Confidence meter */}
       <ConfidenceMeter value={confidence} color={color} />
+
+      {/* Chat with this agent button */}
+      {onChat && (
+        <Pressable
+          onPress={() => onChat(agent)}
+          style={[styles.chatBtn, { borderColor: color + '55' }]}
+        >
+          <Text style={[styles.chatBtnText, { color }]}>💬 Chat with {name}</Text>
+        </Pressable>
+      )}
     </Animated.View>
   );
 }
@@ -153,6 +163,18 @@ const styles = StyleSheet.create({
   flagText: {
     color: colors.textSecondary,
     fontSize: 11,
+  },
+  chatBtn: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  chatBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 

@@ -22,6 +22,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../constants/colors';
+import { agents as AGENT_LIST } from '../constants/agents';
 import { useScan } from '../context/ScanContext';
 import FoodBackground from '../components/FoodBackground';
 import BurgerMenu from '../components/BurgerMenu';
@@ -222,7 +223,7 @@ function ResultMessage({ result, onViewFullAnalysis }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function ChatScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { image, healthNote, result, setResult } = useScan();
+  const { image, healthNote, result, setResult, selectedAgent, setSelectedAgent } = useScan();
 
   const [messages, setMessages]                   = useState([]);
   const [inputText, setInputText]                 = useState('');
@@ -254,8 +255,13 @@ export default function ChatScreen({ navigation, route }) {
         navigation.setParams({ triggerAnalysis: false });
         startAnalysis(image, healthNote);
       }
+      // Handle navigation from agent card "Chat with agent" button
+      if (route.params?.agentChat) {
+        navigation.setParams({ agentChat: false });
+        // selectedAgent is already set in ScanContext by ResultScreen
+      }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [route.params?.triggerAnalysis]),
+    }, [route.params?.triggerAnalysis, route.params?.agentChat]),
   );
 
   // ── Stage name → pipeline index mapping ──────────────────────────────────────
@@ -462,14 +468,28 @@ export default function ChatScreen({ navigation, route }) {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/followup`, {
+      // Route to specific agent or general follow-up based on selection
+      const endpoint = selectedAgent
+        ? `${API_URL}/api/agent-chat`
+        : `${API_URL}/api/followup`;
+
+      const body = selectedAgent
+        ? {
+            agent_id: selectedAgent.backendId,
+            scan_context: result,
+            chat_history: buildChatHistory(),
+            new_message: trimmed,
+          }
+        : {
+            scan_context: result,
+            chat_history: buildChatHistory(),
+            new_message: trimmed,
+          };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scan_context: result,
-          chat_history: buildChatHistory(),
-          new_message: trimmed,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -575,7 +595,9 @@ export default function ChatScreen({ navigation, route }) {
           <View style={styles.headerCenter}>
             <Text style={[styles.headerTitle, !isDark && { color: palette.text1 }]}>HealthScan AI</Text>
             <Text style={[styles.headerSub, !isDark && { color: palette.text2 }]} numberOfLines={1}>
-              {result ? result.product : 'Powered by 6 AI specialists'}
+              {selectedAgent
+                ? `${selectedAgent.emoji} Chatting with ${selectedAgent.name}`
+                : result ? result.product : 'Powered by 6 AI specialists'}
             </Text>
           </View>
 
@@ -592,6 +614,61 @@ export default function ChatScreen({ navigation, route }) {
             </View>
           </Pressable>
         </View>
+
+        {/* ── Agent selector pills (visible when a scan result exists) ──── */}
+        {result && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.agentPillsRow}
+            style={[styles.agentPillsScroll, !isDark && { backgroundColor: palette.surface, borderBottomColor: 'rgba(0,0,0,0.08)' }]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* General advisor pill */}
+            <Pressable
+              onPress={() => setSelectedAgent(null)}
+              style={[
+                styles.agentPill,
+                !selectedAgent && styles.agentPillActive,
+                !isDark && { backgroundColor: !selectedAgent ? palette.accent : '#F0F0F0', borderColor: !selectedAgent ? palette.accent : 'rgba(0,0,0,0.10)' },
+              ]}
+            >
+              <Text style={styles.agentPillEmoji}>🤖</Text>
+              <Text style={[
+                styles.agentPillText,
+                !selectedAgent && styles.agentPillTextActive,
+                !isDark && { color: !selectedAgent ? '#0d131a' : '#555' },
+              ]}>
+                General
+              </Text>
+            </Pressable>
+
+            {/* Individual agent pills */}
+            {AGENT_LIST.map(agent => {
+              const isActive = selectedAgent?.id === agent.id;
+              return (
+                <Pressable
+                  key={agent.id}
+                  onPress={() => setSelectedAgent(agent)}
+                  style={[
+                    styles.agentPill,
+                    isActive && [styles.agentPillActive, { borderColor: agent.color }],
+                    !isDark && { backgroundColor: isActive ? agent.color + '22' : '#F0F0F0', borderColor: isActive ? agent.color : 'rgba(0,0,0,0.10)' },
+                  ]}
+                >
+                  <Text style={styles.agentPillEmoji}>{agent.emoji}</Text>
+                  <Text style={[
+                    styles.agentPillText,
+                    isActive && [styles.agentPillTextActive, { color: agent.color }],
+                    !isDark && { color: isActive ? agent.color : '#555' },
+                  ]}>
+                    {agent.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* ── Messages ─────────────────────────────────────────────────── */}
         <ScrollView
