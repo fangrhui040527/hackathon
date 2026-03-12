@@ -52,6 +52,7 @@ AGENTS = [
     {"name": "foodchemist-agent",         "version": "3",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
     {"name": "fitnessCoach-agent",        "version": "4",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
     {"name": "healthSpecialist-agent",    "version": "3",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
+    {"name": "compliance-agent",          "version": "1",  "label": "Compliance Specialist", "display": "🕌 Checking religious and ethical compliance..."},
 ]
 CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "3"}
 
@@ -181,6 +182,13 @@ def _build_result_from_responses(
             "considered_health_note": has_health_note,
         })
 
+    # Extract compliance data from conclusion JSON if available
+    compliance_data = None
+    if conclusion_json:
+        eb = conclusion_json.get("expert_breakdown", {})
+        if isinstance(eb, dict):
+            compliance_data = eb.get("compliance")
+
     # Overall verdict — prefer conclusion agent's verdict_color
     if conclusion_json and conclusion_json.get("verdict_color"):
         color = conclusion_json["verdict_color"].lower()
@@ -193,6 +201,13 @@ def _build_result_from_responses(
             overall_verdict = "safe"
         else:
             overall_verdict = "caution"
+
+    # Compliance override: Haram or Non-Vegan flags force AVOID
+    if compliance_data and isinstance(compliance_data, dict):
+        halal = (compliance_data.get("halal_status") or "").lower()
+        vegan = (compliance_data.get("vegan_status") or "").lower()
+        if halal in ("haram", "non-halal") or vegan in ("non-vegan", "not vegan"):
+            overall_verdict = "avoid"
 
     # Use conclusion agent's structured fields when available
     if conclusion_json:
@@ -210,7 +225,7 @@ def _build_result_from_responses(
         elif overall_verdict == "caution":
             avoid_if = ["Those with sensitive health conditions"]
 
-    return {
+    result = {
         "product": product_name,
         "type": "Food Product",
         "servingSize": food_data.get("serving_size", ""),
@@ -226,6 +241,17 @@ def _build_result_from_responses(
         },
         "agentOutputs": agent_outputs,
     }
+
+    # Attach compliance breakdown when available
+    if compliance_data and isinstance(compliance_data, dict):
+        result["compliance"] = {
+            "halal_status": compliance_data.get("halal_status", "Unknown"),
+            "vegan_status": compliance_data.get("vegan_status", "Unknown"),
+            "flagged_ingredients": compliance_data.get("flagged_ingredients", []),
+            "notes": compliance_data.get("notes", ""),
+        }
+
+    return result
 
 
 @app.get("/api/health")
@@ -323,7 +349,7 @@ async def analyze(
     """
     Analyze a food image through the full pipeline, streaming SSE events.
 
-    Flow: upload → extract (CU) → 5 agents (parallel) → conclusion → done
+    Flow: upload → extract (CU) → 6 agents (parallel) → conclusion → done
     """
     async def event_generator():
         try:
@@ -357,7 +383,7 @@ async def analyze(
             for agent_def in AGENTS:
                 yield {"event": "stage", "data": json.dumps({"stage": "agents", "label": agent_def["display"]})}
 
-            # Fire all 5 agents in parallel using asyncio.to_thread
+            # Fire all 6 agents in parallel using asyncio.to_thread
             agent_futures = [
                 asyncio.to_thread(_call_foundry_agent, agent_def, task_prompt)
                 for agent_def in AGENTS
@@ -394,6 +420,7 @@ async def analyze(
                 "foodchemist-agent": "Chemist",
                 "fitnessCoach-agent": "Fitness",
                 "healthSpecialist-agent": "Health Specialist",
+                "compliance-agent": "Compliance Specialist",
             }
             expert_sections = []
             for r in agent_results:
@@ -404,6 +431,18 @@ async def analyze(
             conclusion_prompt = (
                 f"ORIGINAL SCANNED LABEL TEXT:\n{ocr_text}\n\n"
                 f"EXPERT REPORTS:\n" + "\n\n".join(expert_sections) + "\n\n"
+                "COMPLIANCE REPORT:\n"
+                "The Compliance Specialist above has analyzed this product for "
+                "religious (Halal/Haram/Kosher) and ethical (Vegan/Vegetarian) compliance. "
+                "Include their findings in the expert_breakdown under the 'compliance' key.\n\n"
+                "STRICT HIERARCHICAL PRIORITY FOR FINAL VERDICT:\n"
+                "1. Doctor (Medical Safety) — any medical red flag → RED (AVOID).\n"
+                "2. Compliance (Religious/Ethical) — if the Compliance Specialist flags a "
+                "'Haram' or 'Non-Vegan' ingredient for a user with those dietary preferences, "
+                "the verdict MUST be RED (AVOID) regardless of nutritional score.\n"
+                "3. Nutrition/Chemistry (Quality) — factor only after 1 & 2 are clear.\n\n"
+                "Include a 'compliance' key in expert_breakdown with fields: "
+                "halal_status, vegan_status, flagged_ingredients (list), and notes.\n\n"
                 "Please synthesize this into the final JSON verdict."
             )
 
@@ -434,7 +473,7 @@ async def analyze(
 # ── Follow-up chat ("Cheat Sheet" + "Two Hats" pattern) ────────────────
 #
 # "Cheat Sheet":  We pass the full Result JSON so the agent has complete
-#                  context without re-running the 5-agent pipeline.
+#                  context without re-running the 6-agent pipeline.
 # "Two Hats":     We dynamically swap the ConclusionAdvisor's behaviour
 #                  from its default JSON-output mode to a warm, conversational
 #                  "Chat Hat" via the system prompt below.

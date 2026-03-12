@@ -38,6 +38,7 @@ const PIPELINE_STAGES = [
   { icon: '⚗️',  label: 'Dr. Kim',                   detail: 'Chemist scanning for additives & preservatives...', duration: 1200 },
   { icon: '💪', label: 'Marcus',                     detail: 'Fitness expert evaluating glycaemic impact...',    duration: 1000 },
   { icon: '🏥', label: 'Dr. Amara',                  detail: 'Healthcare specialist checking long-term risks...', duration: 1100 },
+  { icon: '🕌', label: 'Compliance',                 detail: 'Checking religious and ethical compliance...',     duration: 1000 },
   { icon: '🧠', label: 'Summarizing',                detail: 'Combining all specialist findings...',             duration: 1300 },
 ];
 
@@ -259,8 +260,8 @@ export default function ChatScreen({ navigation, route }) {
   const STAGE_MAP = {
     upload: 0, extract: 1, grounding: 1,
     agents: 2,
-    agent1: 2, agent2: 3, agent3: 4, agent4: 5, agent5: 6,
-    conclude: 7, done: 8,
+    agent1: 2, agent2: 3, agent3: 4, agent4: 5, agent5: 6, agent6: 7,
+    conclude: 8, done: 9,
   };
 
   // Map backend agent names to pipeline stage indices
@@ -270,6 +271,7 @@ export default function ChatScreen({ navigation, route }) {
     'foodchemist-agent': 4,
     'fitnessCoach-agent': 5,
     'healthSpecialist-agent': 6,
+    'compliance-agent': 7,
   };
 
   // ── Analysis pipeline (real SSE to backend) ─────────────────────────────────
@@ -529,7 +531,7 @@ export default function ChatScreen({ navigation, route }) {
           <View style={styles.headerCenter}>
             <Text style={[styles.headerTitle, !isDark && { color: palette.text1 }]}>HealthScan AI</Text>
             <Text style={[styles.headerSub, !isDark && { color: palette.text2 }]} numberOfLines={1}>
-              {result ? result.product : 'Powered by 5 AI specialists'}
+              {result ? result.product : 'Powered by 6 AI specialists'}
             </Text>
           </View>
 
