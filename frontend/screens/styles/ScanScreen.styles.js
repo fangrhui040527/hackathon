@@ -1,12 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '../../constants/colors';
 
-// ─── Scanning frame constants ─────────────────────────────────────────────────
-export const FRAME_SIZE    = 260;
-export const CORNER_LEN    = 28;
-export const CORNER_W      = 3;
-export const BRACKET_COLOR = '#d3d5d4';    // silver to match enterprise theme
-
 // ─── Enterprise dark palette (mirrors ChatScreen) ────────────────────────────
 const DEEP      = '#0d131a';
 const SURFACE   = '#141c26';
@@ -36,9 +30,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: SURFACE,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    backgroundColor: 'transparent',
   },
   headerBtn: {
     width: 44,
@@ -77,117 +69,82 @@ export const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
-  // ── Center / scanning frame ──
-  centerSection: {
+  // ── Capture guide frame ──
+  frameArea: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 14,
   },
-  scanFrame: {
-    width: FRAME_SIZE,
-    height: FRAME_SIZE,
-    overflow: 'hidden',
+  captureFrame: {
+    width: '82%',
+    aspectRatio: 0.75,
+    backgroundColor: 'transparent',
   },
-  scanLine: {
+  corner: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: CYAN,
-    shadowColor: CYAN,
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
+    width: 32,
+    height: 32,
+    borderColor: '#FFFFFF',
+    borderWidth: 3,
   },
+  cornerTL: { top: 0, left: 0, borderBottomWidth: 0, borderRightWidth: 0, borderTopLeftRadius: 10 },
+  cornerTR: { top: 0, right: 0, borderBottomWidth: 0, borderLeftWidth: 0, borderTopRightRadius: 10 },
+  cornerBL: { bottom: 0, left: 0, borderTopWidth: 0, borderRightWidth: 0, borderBottomLeftRadius: 10 },
+  cornerBR: { bottom: 0, right: 0, borderTopWidth: 0, borderLeftWidth: 0, borderBottomRightRadius: 10 },
   frameHint: {
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 12,
+    letterSpacing: 0.3,
   },
 
-  // ── Corner brackets ──
-  bracketWrap: {
-    position: 'absolute',
-    width: CORNER_LEN,
-    height: CORNER_LEN,
-  },
-  bracketH: {
-    position: 'absolute',
-    width: CORNER_LEN,
-    height: CORNER_W,
-    backgroundColor: BRACKET_COLOR,
-    borderRadius: 2,
-  },
-  bracketV: {
-    position: 'absolute',
-    width: CORNER_W,
-    height: CORNER_LEN,
-    backgroundColor: BRACKET_COLOR,
-    borderRadius: 2,
-  },
-
-  // ── Bottom panel ──
-  bottomPanel: {
-    backgroundColor: SURFACE,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-    padding: 20,
-    gap: 12,
-  },
-  // Side-by-side row
-  bottomBtnsRow: {
+  // ── Shutter row ──
+  shutterRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 40,
+    paddingVertical: 32,
+    backgroundColor: 'transparent',
   },
-  halfBtn: {
-    flex: 1,
-    height: 54,
-    borderRadius: 16,
+  galleryBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 10,
   },
-  cameraBtnText: {
-    color: '#040810',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  cameraBtnIcon: {
+  galleryIcon: {
     width: 40,
     height: 40,
     resizeMode: 'contain',
-    tintColor: '#040810',
+    tintColor: '#FFFFFF',
   },
-  uploadBtn: {
-    flex: 1,
-    height: 54,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: CYAN_BDR,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    backgroundColor: CYAN_DIM,
+  galleryBtnActive: {
+    backgroundColor: 'rgba(255,220,80,0.35)',
   },
-  uploadBtnText: {
-    color: CYAN,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  uploadBtnIcon: {
+  torchIconActive: {
     width: 40,
     height: 40,
     resizeMode: 'contain',
-    tintColor: CYAN,
+    tintColor: '#FFE050',
   },
-  tip: {
-    color: TEXT_2,
-    fontSize: 11,
-    textAlign: 'center',
+  shutterBtn: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterInner: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#FFFFFF',
   },
 
   // ── Permission screen ──

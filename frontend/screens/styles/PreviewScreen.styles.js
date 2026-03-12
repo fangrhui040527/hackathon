@@ -6,8 +6,8 @@ const SURFACE   = '#141c26';
 const SURFACE2  = '#333740';
 const BORDER    = 'rgba(255,255,255,0.07)';
 const BORDER_MD = 'rgba(255,255,255,0.11)';
-const CYAN      = '#d3d5d4';
-const CYAN_BDR  = 'rgba(211,213,212,0.30)';
+const WHITESILVER     = '#d3d5d4';
+const WHITESILVER_BDR = 'rgba(211,213,212,0.30)';
 const TEXT_1    = '#E8ECF4';
 const TEXT_2    = '#6B7280';
 
@@ -54,23 +54,21 @@ export const styles = StyleSheet.create({
 
   // ── Scroll ──
   scroll: {
-    padding: 20,
+    paddingBottom: 20,
     gap: 16,
   },
 
-  // ── Image preview ──
+  // ── Image preview (full-width, no side padding) ──
   imageOuter: {
-    borderRadius: 20,
-    shadowColor: CYAN,
+    shadowColor: WHITESILVER,
     shadowOpacity: 0.25,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 4 },
     elevation: 10,
   },
   imageInner: {
-    borderRadius: 20,
     overflow: 'hidden',
-    height: 280,
+    height: 380,
     backgroundColor: SURFACE,
   },
   image: {
@@ -119,6 +117,8 @@ export const styles = StyleSheet.create({
   // ── Health note section ──
   noteSection: {
     gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
   noteSectionRow: {
     flexDirection: 'row',
@@ -131,7 +131,7 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
   },
   editBtn: {
-    color: CYAN,
+    color: WHITESILVER,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -169,39 +169,51 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     paddingTop: 14,
-    gap: 12,
+    gap: 14,
     borderTopWidth: 1,
     borderTopColor: BORDER,
     backgroundColor: SURFACE,
+    alignItems: 'center',
   },
   retakeBtn: {
-    flex: 1,
-    height: 54,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: CYAN_BDR,
+    borderColor: WHITESILVER_BDR,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(211,213,212,0.08)',
   },
-  retakeBtnText: {
-    color: CYAN,
-    fontSize: 16,
-    fontWeight: '700',
+  retakeIcon: {
+    width: 56,
+    height: 56,
+    resizeMode: 'contain',
+    tintColor: WHITESILVER,
   },
   sendWrapper: {
     flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
   },
   sendBtn: {
     flex: 1,
     height: 54,
-    borderRadius: 16,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: WHITESILVER_BDR,
+    backgroundColor: 'rgba(211,213,212,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 120,
+    overflow: 'hidden',
   },
   sendBtnText: {
-    color: '#FFFFFF',
+    color: WHITESILVER,
     fontSize: 16,
     fontWeight: '700',
   },
