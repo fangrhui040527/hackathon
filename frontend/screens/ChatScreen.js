@@ -8,6 +8,7 @@ import {
   Alert,
   Animated,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Pressable,
@@ -53,13 +54,10 @@ const SUGGESTIONS = [
   'How much is too much?',
 ];
 
-// ─── Fallback text when no scan result is available ──────────────────────────
-function getNoScanFallback() {
-  return (
-    'I\'m here to help analyze your food products!\n\n' +
-    'Scan a nutrition label first, then ask me about ingredients, nutrition, or healthier alternatives 😊'
-  );
-}
+// ─── Unique message ID generator ─────────────────────────────────────────────
+let _msgIdCounter = 0;
+function uid(prefix = 'msg') { return `${prefix}_${Date.now()}_${++_msgIdCounter}`; }
+
 
 // ─── Typing / thinking dots ───────────────────────────────────────────────────
 function BounceDots({ style }) {
@@ -286,8 +284,8 @@ export default function ChatScreen({ navigation, route }) {
   const startAnalysis = (imageUri, caption) => {
     if (analysisTimerRef.current) clearTimeout(analysisTimerRef.current);
 
-    const userMsgId   = `user_img_${Date.now()}`;
-    const analyzingId = `analyzing_${Date.now()}`;
+    const userMsgId   = uid('user_img');
+    const analyzingId = uid('analyzing');
 
     // Add user image + analyzing placeholder in one update
     setMessages(prev => [
@@ -451,40 +449,42 @@ export default function ChatScreen({ navigation, route }) {
 
     if (typeof textOverride !== 'string') setInputText('');
 
+    Keyboard.dismiss();
+
     setMessages(prev => [
       ...prev,
-      { id: String(Date.now()), type: 'user_text', text: trimmed },
+      { id: uid('user'), type: 'user_text', text: trimmed },
     ]);
     setIsTyping(true);
 
-    // If no scan result yet, show a prompt to scan first
-    if (!result) {
-      setIsTyping(false);
-      setMessages(prev => [
-        ...prev,
-        { id: String(Date.now() + 1), type: 'ai_text', text: getNoScanFallback() },
-      ]);
-      return;
-    }
-
     try {
-      // Route to specific agent or general follow-up based on selection
-      const endpoint = selectedAgent
-        ? `${API_URL}/api/agent-chat`
-        : `${API_URL}/api/followup`;
+      // Route based on whether a scan result exists and agent selection
+      let endpoint;
+      let body;
 
-      const body = selectedAgent
-        ? {
-            agent_id: selectedAgent.backendId,
-            scan_context: result,
-            chat_history: buildChatHistory(),
-            new_message: trimmed,
-          }
-        : {
-            scan_context: result,
-            chat_history: buildChatHistory(),
-            new_message: trimmed,
-          };
+      if (!result) {
+        // No scan yet — use general chat
+        endpoint = `${API_URL}/api/general-chat`;
+        body = {
+          chat_history: buildChatHistory(),
+          new_message: trimmed,
+        };
+      } else if (selectedAgent) {
+        endpoint = `${API_URL}/api/agent-chat`;
+        body = {
+          agent_id: selectedAgent.backendId,
+          scan_context: result,
+          chat_history: buildChatHistory(),
+          new_message: trimmed,
+        };
+      } else {
+        endpoint = `${API_URL}/api/followup`;
+        body = {
+          scan_context: result,
+          chat_history: buildChatHistory(),
+          new_message: trimmed,
+        };
+      }
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -498,14 +498,14 @@ export default function ChatScreen({ navigation, route }) {
       setIsTyping(false);
       setMessages(prev => [
         ...prev,
-        { id: String(Date.now() + 1), type: 'ai_text', text: reply },
+        { id: uid('ai'), type: 'ai_text', text: reply },
       ]);
     } catch (err) {
       setIsTyping(false);
       setMessages(prev => [
         ...prev,
         {
-          id: String(Date.now() + 1),
+          id: uid('ai'),
           type: 'ai_text',
           text: 'Could not reach the server. Please check your connection and try again.',
         },
@@ -530,6 +530,7 @@ export default function ChatScreen({ navigation, route }) {
     const caption = inputText.trim() || null;
     setPendingAttachment(null);
     setInputText('');
+    Keyboard.dismiss();
     startAnalysis(att.uri, caption);
   };
 
@@ -601,17 +602,13 @@ export default function ChatScreen({ navigation, route }) {
             </Text>
           </View>
 
-          {/* Burger menu button */}
+          {/* Settings button */}
           <Pressable
             onPress={() => setBurgerOpen(true)}
             style={[styles.headerBackBtn, !isDark && { backgroundColor: palette.surface2 }]}
             hitSlop={8}
           >
-            <View style={styles.burgerWrap}>
-              <View style={[styles.burgerBar, !isDark && { backgroundColor: '#E8ECF4' }]} />
-              <View style={[styles.burgerBar, { width: 13 }, !isDark && { backgroundColor: '#E8ECF4' }]} />
-              <View style={[styles.burgerBar, !isDark && { backgroundColor: '#E8ECF4' }]} />
-            </View>
+            <Text style={{ fontSize: 18 }}>⚙️</Text>
           </Pressable>
         </View>
 
@@ -907,21 +904,8 @@ export default function ChatScreen({ navigation, route }) {
               returnKeyType="send"
               onSubmitEditing={() => handleSend()}
               onFocus={closeMenu}
-              blurOnSubmit={false}
-              multiline
+              blurOnSubmit={true}
             />
-
-            {/* Upload / send button */}
-            <Pressable onPress={() => handleSend()} disabled={!canSend} hitSlop={4}>
-              <LinearGradient
-                colors={isDark ? ['#d3d5d4', '#b8babc'] : [palette.accent, '#D0D0D0']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
-              >
-                <Image source={require('../../assets/BSubmit_Icon.png')} style={[styles.sendIcon, { tintColor: isDark ? '#FFFFFF' : '#0d131a' }]} />
-              </LinearGradient>
-            </Pressable>
           </View>
 
         </View>

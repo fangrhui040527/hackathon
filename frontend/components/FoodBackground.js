@@ -14,8 +14,8 @@ const FOODS = [
 ];
 
 // ─── Physics constants ────────────────────────────────────────────────────────
-const MIN_SPEED = 1.0;  // px/frame — smooth & graceful
-const MAX_SPEED = 2.0;
+const MIN_SPEED = 0.5;  // px/frame — smooth & graceful
+const MAX_SPEED = 1.0;
 
 // ─── Stable visual descriptors (generated once at module load) ────────────────
 const DESCRIPTORS = Array.from({ length: 22 }, (_, i) => ({
@@ -34,7 +34,7 @@ const INIT = DESCRIPTORS.map(d => {
     vx:     Math.cos(angle) * speed,
     vy:     Math.sin(angle) * speed,
     rot:    Math.random() * 360,
-    rotSpd: (Math.random() < 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.6),
+    rotSpd: (Math.random() < 0.5 ? 1 : -1) * (0.15 + Math.random() * 0.3),
   };
 });
 

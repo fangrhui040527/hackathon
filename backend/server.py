@@ -54,7 +54,7 @@ AGENTS = [
     {"name": "healthSpecialist-agent",    "version": "9",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
     {"name": "cultural-religious-compliance-agent", "version": "12", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
 ]
-CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "10"}
+CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "11"}
 
 
 def _extract_product_name(food_data: dict) -> str:
@@ -728,6 +728,66 @@ async def agent_chat(payload: AgentChatRequest):
                 previous_response_id=response.id,
             )
 
+        reply = response.output_text or "I'm sorry, I couldn't generate a response."
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=502,
+            content={"error": f"Agent call failed: {str(e)}"},
+        )
+
+    return {"reply": reply}
+
+
+# ── General chat (no scan required) ──────────────────────────────────────
+
+GENERAL_CHAT_SYSTEM_PROMPT = (
+    "You are the HealthLens Assistant, a warm and knowledgeable food & nutrition "
+    "AI companion. The user has NOT scanned a product yet. "
+    "Answer general food, nutrition, health, and wellness questions helpfully. "
+    "If the question would benefit from scanning a specific product, gently "
+    "suggest they scan a nutrition label for a more personalised answer. "
+    "Tone: Warm, friendly, clear, and empathetic. "
+    "Format: normal conversational text. DO NOT output JSON. "
+    "Safety First: Always remind them to consult a physician for clinical questions."
+)
+
+
+class GeneralChatRequest(BaseModel):
+    chat_history: list[ChatMessage]
+    new_message: str
+
+
+@app.post("/api/general-chat")
+async def general_chat(payload: GeneralChatRequest):
+    """
+    General conversational chat when no scan result is available.
+    Uses the ConclusionAdvisor agent with a general-purpose system prompt.
+    """
+    messages = [
+        {"role": "user",      "content": GENERAL_CHAT_SYSTEM_PROMPT},
+        {"role": "assistant", "content": "Understood. I will answer general food and "
+                                          "nutrition questions conversationally with a "
+                                          "warm and empathetic tone. I will not output JSON."},
+    ]
+
+    for msg in payload.chat_history:
+        messages.append({"role": msg.role, "content": msg.content})
+
+    messages.append({"role": "user", "content": payload.new_message})
+
+    try:
+        response = await asyncio.to_thread(
+            _openai_client.responses.create,
+            input=messages,
+            extra_body={
+                "agent_reference": {
+                    "name": CONCLUSION_AGENT["name"],
+                    "version": CONCLUSION_AGENT["version"],
+                    "type": "agent_reference",
+                }
+            },
+        )
         reply = response.output_text or "I'm sorry, I couldn't generate a response."
     except Exception as e:
         traceback.print_exc()
