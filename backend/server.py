@@ -47,14 +47,14 @@ app.add_middleware(
 
 # ── Foundry agent definitions ───────────────────────────────────────────
 AGENTS = [
-    {"name": "doctor-agent",              "version": "18", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
-    {"name": "nutritionist-agent",        "version": "8",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
-    {"name": "foodchemist-agent",         "version": "9",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
-    {"name": "fitnessCoach-agent",        "version": "8",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
-    {"name": "healthSpecialist-agent",    "version": "7",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
-    {"name": "cultural-religious-compliance-agent", "version": "8", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
+    {"name": "doctor-agent",              "version": "19", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
+    {"name": "nutritionist-agent",        "version": "9",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
+    {"name": "foodchemist-agent",         "version": "10", "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
+    {"name": "fitnessCoach-agent",        "version": "9",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
+    {"name": "healthSpecialist-agent",    "version": "8",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
+    {"name": "cultural-religious-compliance-agent", "version": "9", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
 ]
-CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "8"}
+CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "9"}
 
 
 def _extract_product_name(food_data: dict) -> str:
