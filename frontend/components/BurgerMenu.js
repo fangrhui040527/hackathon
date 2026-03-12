@@ -199,14 +199,16 @@ export default function BurgerMenu({ visible, onClose, navigation, onClearChat }
             onPress={() => { onClose(); setTimeout(() => navigation.navigate('Scan'), 260); }}
           />
           <MenuItem
-            icon="✏️" label="New Conversation" sub="Clear chat and start fresh"
+            iconImg={require('../../assets/WNewChat_Icon.png')}
+            label="New Conversation" sub="Clear chat and start fresh"
             isDark={isDark}
             onPress={() => { onClose(); setTimeout(onClearChat, 260); }}
           />
           <MenuItem
-            icon="📊" label="Last Result" sub="View the most recent analysis"
+            iconImg={require('../../assets/WChatHistory_Icon.png')}
+            label="Chat History" sub="View previous conversations"
             isDark={isDark}
-            onPress={() => { onClose(); setTimeout(() => navigation.navigate('Result'), 260); }}
+            onPress={() => { onClose(); setTimeout(() => navigation.navigate('Chat'), 260); }}
           />
 
           <Divider isDark={isDark} />
@@ -225,7 +227,10 @@ export default function BurgerMenu({ visible, onClose, navigation, onClearChat }
             ]}
           >
             <View style={[s.iconWrap, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}>
-              <Text style={s.iconText}>{isDark ? '🌙' : '☀️'}</Text>
+              <Image
+                source={isDark ? require('../../assets/WDark_Icon.png') : require('../../assets/WLight_Icon.png')}
+                style={[s.menuIconImg, { tintColor: isDark ? '#FFFFFF' : '#0d131a' }]}
+              />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={[s.menuLabel, { color: isDark ? '#E8ECF4' : '#0d131a' }]}>
@@ -339,9 +344,9 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
