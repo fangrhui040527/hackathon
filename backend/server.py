@@ -183,16 +183,22 @@ def _build_result_from_responses(
         })
 
     # Extract compliance data from conclusion JSON if available
+    # The agent may return expert_breakdown.compliance as a string or a dict
     compliance_data = None
+    compliance_text = None
     if conclusion_json:
         eb = conclusion_json.get("expert_breakdown", {})
         if isinstance(eb, dict):
-            compliance_data = eb.get("compliance")
+            raw_compliance = eb.get("compliance")
+            if isinstance(raw_compliance, dict):
+                compliance_data = raw_compliance
+            elif isinstance(raw_compliance, str):
+                compliance_text = raw_compliance
 
     # Overall verdict — prefer conclusion agent's verdict_color
     if conclusion_json and conclusion_json.get("verdict_color"):
         color = conclusion_json["verdict_color"].lower()
-        overall_verdict = {"red": "avoid", "green": "safe"}.get(color, "caution")
+        overall_verdict = {"red": "avoid", "green": "safe", "yellow": "caution"}.get(color, "caution")
     else:
         verdicts = [a["verdict"] for a in agent_outputs]
         if verdicts.count("avoid") >= 3:
@@ -203,10 +209,16 @@ def _build_result_from_responses(
             overall_verdict = "caution"
 
     # Compliance override: Haram or Non-Vegan flags force AVOID
+    # Handle structured dict format
     if compliance_data and isinstance(compliance_data, dict):
         halal = (compliance_data.get("halal_status") or "").lower()
         vegan = (compliance_data.get("vegan_status") or "").lower()
         if halal in ("haram", "non-halal") or vegan in ("non-vegan", "not vegan"):
+            overall_verdict = "avoid"
+    # Handle string format from expert_breakdown
+    elif compliance_text:
+        ct_lower = compliance_text.lower()
+        if "haram" in ct_lower or "non-halal" in ct_lower or "non-vegan" in ct_lower or "not vegan" in ct_lower:
             overall_verdict = "avoid"
 
     # Use conclusion agent's structured fields when available
@@ -250,6 +262,8 @@ def _build_result_from_responses(
             "flagged_ingredients": compliance_data.get("flagged_ingredients", []),
             "notes": compliance_data.get("notes", ""),
         }
+    elif compliance_text:
+        result["compliance"] = {"summary": compliance_text}
 
     return result
 
@@ -431,19 +445,14 @@ async def analyze(
             conclusion_prompt = (
                 f"ORIGINAL SCANNED LABEL TEXT:\n{ocr_text}\n\n"
                 f"EXPERT REPORTS:\n" + "\n\n".join(expert_sections) + "\n\n"
-                "COMPLIANCE REPORT:\n"
-                "The Compliance Specialist above has analyzed this product for "
-                "religious (Halal/Haram/Kosher) and ethical (Vegan/Vegetarian) compliance. "
-                "Include their findings in the expert_breakdown under the 'compliance' key.\n\n"
-                "STRICT HIERARCHICAL PRIORITY FOR FINAL VERDICT:\n"
+                "Synthesize these reports into your final JSON verdict.\n"
+                "Apply the Hierarchical Priority Matrix:\n"
                 "1. Doctor (Medical Safety) — any medical red flag → RED (AVOID).\n"
-                "2. Compliance (Religious/Ethical) — if the Compliance Specialist flags a "
-                "'Haram' or 'Non-Vegan' ingredient for a user with those dietary preferences, "
-                "the verdict MUST be RED (AVOID) regardless of nutritional score.\n"
-                "3. Nutrition/Chemistry (Quality) — factor only after 1 & 2 are clear.\n\n"
-                "Include a 'compliance' key in expert_breakdown with fields: "
-                "halal_status, vegan_status, flagged_ingredients (list), and notes.\n\n"
-                "Please synthesize this into the final JSON verdict."
+                "2. Compliance (Religious/Ethical) — any Haram, Non-Halal, or Non-Vegan \n"
+                "   violation for the user → RED (AVOID) regardless of nutritional score.\n"
+                "3. Chemist (Banned/Prohibited substances) → RED (AVOID).\n"
+                "4. Nutrition/Fitness/Holistic (Quality) — factor only after 1-3 are clear.\n\n"
+                "Return ONLY valid JSON, no markdown fences."
             )
 
             conclusion_result = await asyncio.to_thread(
