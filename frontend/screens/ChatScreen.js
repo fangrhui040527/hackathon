@@ -271,7 +271,7 @@ export default function ChatScreen({ navigation, route }) {
     'foodchemist-agent': 4,
     'fitnessCoach-agent': 5,
     'healthSpecialist-agent': 6,
-    'compliance-agent': 7,
+    'cultural-religious-compliance-agent': 7,
   };
 
   // ── Analysis pipeline (real SSE to backend) ─────────────────────────────────

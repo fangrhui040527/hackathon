@@ -47,14 +47,14 @@ app.add_middleware(
 
 # ── Foundry agent definitions ───────────────────────────────────────────
 AGENTS = [
-    {"name": "doctor-agent",              "version": "12", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
-    {"name": "nutritionist-agent",        "version": "4",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
-    {"name": "foodchemist-agent",         "version": "3",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
-    {"name": "fitnessCoach-agent",        "version": "4",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
-    {"name": "healthSpecialist-agent",    "version": "3",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
-    {"name": "compliance-agent",          "version": "1",  "label": "Compliance Specialist", "display": "🕌 Checking religious and ethical compliance..."},
+    {"name": "doctor-agent",              "version": "16", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
+    {"name": "nutritionist-agent",        "version": "7",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
+    {"name": "foodchemist-agent",         "version": "8",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
+    {"name": "fitnessCoach-agent",        "version": "7",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
+    {"name": "healthSpecialist-agent",    "version": "6",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
+    {"name": "cultural-religious-compliance-agent", "version": "7", "label": "Compliance Specialist", "display": "🕌 Checking religious and ethical compliance..."},
 ]
-CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "3"}
+CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "7"}
 
 
 def _extract_product_name(food_data: dict) -> str:
@@ -420,7 +420,7 @@ async def analyze(
                 "foodchemist-agent": "Chemist",
                 "fitnessCoach-agent": "Fitness",
                 "healthSpecialist-agent": "Health Specialist",
-                "compliance-agent": "Compliance Specialist",
+                "cultural-religious-compliance-agent": "Compliance Specialist",
             }
             expert_sections = []
             for r in agent_results:
