@@ -249,7 +249,7 @@ export default function BurgerMenu({ visible, onClose, navigation, onClearChat }
           <SectionLabel label="ABOUT" isDark={isDark} />
 
           <MenuItem
-            icon="ℹ️" label="About" sub="Built with 5 specialized AI agents"
+            icon="ℹ️" label="About" sub="Built with 6 specialized AI agents"
             isDark={isDark}
             onPress={onClose}
           />

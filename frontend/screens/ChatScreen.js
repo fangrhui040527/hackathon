@@ -5,9 +5,11 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -419,6 +421,28 @@ export default function ChatScreen({ navigation, route }) {
     const trimmed = (typeof textOverride === 'string' ? textOverride : inputText).trim();
     if (!trimmed) return;
 
+    // Emergency / distress detection via LLM
+    try {
+      const emergencyRes = await fetch(`${API_URL}/api/check-emergency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: trimmed }),
+      });
+      const emergencyData = await emergencyRes.json();
+      if (emergencyData.emergency) {
+        if (typeof textOverride !== 'string') setInputText('');
+        Alert.alert(
+          'Emergency Call',
+          'Do you want to call 911?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Call 911', style: 'destructive', onPress: () => Linking.openURL('tel:911') },
+          ],
+        );
+        return;
+      }
+    } catch (_) { /* LLM check failed, proceed normally */ }
+
     if (typeof textOverride !== 'string') setInputText('');
 
     setMessages(prev => [
@@ -526,7 +550,27 @@ export default function ChatScreen({ navigation, route }) {
       >
         {/* ── Header ───────────────────────────────────────────────────── */}
         <View style={[styles.header, { paddingTop: insets.top + 8 }, !isDark && { backgroundColor: palette.surface }]}>
-          <View style={{ width: 38 }} />
+          {/* Emergency call button */}
+          <Pressable
+            onPress={() =>
+              Alert.alert(
+                'Emergency Call',
+                'Do you want to call 911?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Call 911', style: 'destructive', onPress: () => Linking.openURL('tel:911') },
+                ],
+              )
+            }
+            style={[
+              styles.headerBackBtn,
+              { backgroundColor: '#FF2D2D' },
+              !isDark && { backgroundColor: '#FF2D2D', borderColor: '#CC0000' },
+            ]}
+            hitSlop={8}
+          >
+            <Text style={{ fontSize: 18 }}>📞</Text>
+          </Pressable>
 
           <View style={styles.headerCenter}>
             <Text style={[styles.headerTitle, !isDark && { color: palette.text1 }]}>HealthScan AI</Text>

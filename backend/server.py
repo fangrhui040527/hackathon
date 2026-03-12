@@ -47,14 +47,14 @@ app.add_middleware(
 
 # ── Foundry agent definitions ───────────────────────────────────────────
 AGENTS = [
-    {"name": "doctor-agent",              "version": "17", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
-    {"name": "nutritionist-agent",        "version": "8",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
-    {"name": "foodchemist-agent",         "version": "9",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
-    {"name": "fitnessCoach-agent",        "version": "8",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
-    {"name": "healthSpecialist-agent",    "version": "7",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
-    {"name": "cultural-religious-compliance-agent", "version": "8", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
+    {"name": "doctor-agent",              "version": "19", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
+    {"name": "nutritionist-agent",        "version": "9",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
+    {"name": "foodchemist-agent",         "version": "10", "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
+    {"name": "fitnessCoach-agent",        "version": "9",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
+    {"name": "healthSpecialist-agent",    "version": "8",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
+    {"name": "cultural-religious-compliance-agent", "version": "9", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
 ]
-CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "7"}
+CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "9"}
 
 
 def _extract_product_name(food_data: dict) -> str:
@@ -176,7 +176,7 @@ def _build_result_from_responses(
         agent_outputs.append({
             "agentId": i + 1,
             "verdict": verdict,
-            "summary": text[:500] if text else "No analysis available.",
+            "summary": text if text else "No analysis available.",
             "flags": flags or ["Analysis complete"],
             "confidence": 80 + (i * 2),
             "considered_health_note": has_health_note,
@@ -279,9 +279,12 @@ def _build_task_prompt(food_data: dict, health_note: str = "") -> str:
     """Build the analysis prompt for agents with food data and user health context."""
     food_json = json.dumps(food_data, indent=2, ensure_ascii=False)
     prompt = (
-        "Analyze the following food item. Use your available tools to look up "
-        "relevant nutrition data, safety information, and health advisories. "
-        "Provide your specialized perspective based on your domain expertise.\n\n"
+        "Analyze the following food item. First use your built-in knowledge base "
+        "tools to look up relevant data. If any external API call (such as "
+        "OpenFoodFacts or barcode lookups) fails or returns no results, simply "
+        "ignore it and continue your analysis using the food data provided below "
+        "and your own expertise. Never let a failed tool call stop you from "
+        "providing your full specialist report.\n\n"
         f"Food Data (extracted from photo):\n```json\n{food_json}\n```"
     )
     if health_note:
@@ -294,6 +297,12 @@ def _call_foundry_agent(agent_def: dict, prompt: str) -> dict:
     Call a Foundry agent via openai_client.responses.create with MCP tool approval loop.
     Agents may request MCP tool access (e.g. knowledge base retrieval) which requires
     explicit approval before they can produce their analysis text.
+
+    Handles two failure modes:
+    1) Agent returns no output_text after MCP approvals → nudge + retry
+    2) Agent's external tool call fails (e.g. OpenFoodFacts 404) → retry with
+       an amended prompt telling the agent to skip external lookups.
+
     Designed to be wrapped with asyncio.to_thread for parallel execution.
     Returns a result dict; on failure returns an error marker so other agents aren't affected.
     """
@@ -304,55 +313,86 @@ def _call_foundry_agent(agent_def: dict, prompt: str) -> dict:
             "type": "agent_reference",
         }
     }
-    try:
-        response = _openai_client.responses.create(
-            input=[{"role": "user", "content": prompt}],
-            extra_body=agent_ref,
-        )
+    name = agent_def["name"]
 
-        # MCP tool approval loop — agents with knowledge bases need approval
-        # before they can query their tools and produce analysis text.
-        for iteration in range(5):
-            if response.output_text:
-                break  # Agent produced text, we're done
-
+    def _approve_loop(resp, max_iters=15):
+        """Keep approving MCP requests until we get output_text or run out of approvals."""
+        for iteration in range(max_iters):
+            if resp.output_text:
+                return resp
             approvals = [
-                item for item in (response.output or [])
+                item for item in (resp.output or [])
                 if item.type == "mcp_approval_request"
             ]
             if not approvals:
-                break  # No pending approvals and no text — agent is done
-
-            print(f"[Agent MCP] {agent_def['name']}: approving {len(approvals)} tool request(s) (iteration {iteration+1})")
-            approval_inputs = [
-                {
+                return resp
+            print(f"[Agent MCP] {name}: approving {len(approvals)} request(s) (iter {iteration+1})")
+            resp = _openai_client.responses.create(
+                input=[{
                     "type": "mcp_approval_response",
                     "approval_request_id": item.id,
                     "approve": True,
-                }
-                for item in approvals
-            ]
-            response = _openai_client.responses.create(
-                input=approval_inputs,
+                } for item in approvals],
                 extra_body=agent_ref,
-                previous_response_id=response.id,
+                previous_response_id=resp.id,
             )
+        return resp
 
-        out = response.output_text
-        print(f"[Agent OK] {agent_def['name']}: output_text length={len(out) if out else 0}, first 200 chars={repr((out or '')[:200])}")
-        return {
-            "agent_name": agent_def["name"],
-            "label": agent_def.get("label", agent_def["name"]),
-            "text": out,
-        }
-    except Exception as e:
-        print(f"[Agent Error] {agent_def['name']}: {type(e).__name__}: {e}")
-        return {
-            "agent_name": agent_def["name"],
-            "label": agent_def.get("label", agent_def["name"]),
-            "text": "",
-            "error": str(e),
-        }
+    FALLBACK_SUFFIX = (
+        "\n\nIMPORTANT: Do NOT call any external API tools (such as OpenFoodFacts, "
+        "barcode lookups, or web searches). Analyze ONLY using the food data provided "
+        "above and your built-in knowledge base. Provide your complete specialist "
+        "analysis directly."
+    )
+
+    MAX_RETRIES = 2
+
+    for attempt in range(1 + MAX_RETRIES):
+        current_prompt = prompt if attempt == 0 else prompt + FALLBACK_SUFFIX
+        try:
+            if attempt > 0:
+                print(f"[Agent Retry] {name}: attempt {attempt+1} (with fallback prompt)")
+
+            response = _openai_client.responses.create(
+                input=[{"role": "user", "content": current_prompt}],
+                extra_body=agent_ref,
+            )
+            response = _approve_loop(response)
+
+            # If still no text, nudge the agent
+            if not response.output_text:
+                print(f"[Agent Nudge] {name}: no text after approvals, nudging...")
+                response = _openai_client.responses.create(
+                    input=[{"role": "user", "content":
+                        "Please provide your complete analysis now based on the food data above. "
+                        "Do not attempt any external API calls."}],
+                    extra_body=agent_ref,
+                    previous_response_id=response.id,
+                )
+                response = _approve_loop(response)
+
+            out = response.output_text
+            if out:
+                print(f"[Agent OK] {name}: attempt {attempt+1}, {len(out)} chars")
+                return {"agent_name": name, "label": agent_def.get("label", name), "text": out}
+
+            output_types = [item.type for item in (response.output or [])]
+            print(f"[Agent Empty] {name}: attempt {attempt+1}, types={output_types}")
+
+        except Exception as e:
+            err_str = str(e)
+            is_tool_error = "tool_user_error" in err_str or "404" in err_str or "tool_error" in err_str
+            print(f"[Agent Error] {name}: attempt {attempt+1}, {type(e).__name__}: {err_str[:300]}")
+
+            if is_tool_error and attempt < MAX_RETRIES:
+                print(f"[Agent Error] {name}: tool error detected, will retry with fallback prompt")
+                continue  # Retry with FALLBACK_SUFFIX
+
+            if attempt == MAX_RETRIES:
+                return {"agent_name": name, "label": agent_def.get("label", name), "text": "", "error": err_str[:500]}
+
+    print(f"[Agent FAIL] {name}: all attempts exhausted")
+    return {"agent_name": name, "label": agent_def.get("label", name), "text": "", "error": "All retries exhausted"}
 
 
 @app.post("/api/analyze")
@@ -420,6 +460,12 @@ async def analyze(
             # Re-order results to match AGENTS list order
             agent_order = {a["name"]: i for i, a in enumerate(AGENTS)}
             agent_results.sort(key=lambda r: agent_order.get(r["agent_name"], 99))
+
+            # Log agent results summary
+            for r in agent_results:
+                txt_len = len(r["text"]) if r["text"] else 0
+                err = r.get("error", "")
+                print(f"[Agent Result] {r['agent_name']}: text_len={txt_len}, error={err[:100] if err else 'none'}")
 
             # ── Stage: Conclusion ────────────────────────────────
             yield {"event": "stage", "data": json.dumps({"stage": "conclude", "label": "Summarizing findings..."})}
@@ -569,6 +615,42 @@ async def followup_chat(payload: FollowUpRequest):
         )
 
     return {"reply": reply}
+
+
+# ── Emergency detection ──────────────────────────────────────────────────
+class EmergencyCheckRequest(BaseModel):
+    message: str
+
+@app.post("/api/check-emergency")
+async def check_emergency(payload: EmergencyCheckRequest):
+    """
+    Lightweight LLM classification: does the user's message indicate they
+    need emergency help (medical, mental health, danger)?
+    Returns { "emergency": true/false }
+    """
+    try:
+        response = await asyncio.to_thread(
+            _openai_client.responses.create,
+            model="gpt-4o",
+            instructions=(
+                "You are an emergency-intent classifier for a health app. "
+                "Determine if the user's message indicates they need "
+                "immediate emergency help such as: medical emergency, "
+                "severe allergic reaction, poisoning, choking, chest pain, "
+                "difficulty breathing, overdose, suicidal thoughts, "
+                "self-harm, requesting 911, or any life-threatening situation.\n"
+                "Respond with ONLY the word YES or NO. Nothing else."
+            ),
+            input=payload.message,
+            temperature=0,
+            max_output_tokens=16,
+        )
+        answer = response.output_text.strip().upper()
+        print(f"[Emergency Check] message='{payload.message}' → answer='{answer}'")
+        return {"emergency": answer == "YES"}
+    except Exception as e:
+        print(f"[Emergency Check Error] {e}")
+        return {"emergency": False}
 
 
 if __name__ == "__main__":
