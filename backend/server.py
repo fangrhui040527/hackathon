@@ -22,8 +22,10 @@ load_dotenv()
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 
+from pydantic import BaseModel
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from content_understanding import analyze_food_image, is_service_configured
@@ -45,7 +47,7 @@ app.add_middleware(
 
 # ── Foundry agent definitions ───────────────────────────────────────────
 AGENTS = [
-    {"name": "doctor-agent",              "version": "11", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
+    {"name": "doctor-agent",              "version": "12", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
     {"name": "nutritionist-agent",        "version": "4",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
     {"name": "foodchemist-agent",         "version": "3",  "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
     {"name": "fitnessCoach-agent",        "version": "4",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
@@ -249,25 +251,59 @@ def _build_task_prompt(food_data: dict, health_note: str = "") -> str:
 
 def _call_foundry_agent(agent_def: dict, prompt: str) -> dict:
     """
-    Synchronous one-shot call to a Foundry agent via openai_client.responses.create.
+    Call a Foundry agent via openai_client.responses.create with MCP tool approval loop.
+    Agents may request MCP tool access (e.g. knowledge base retrieval) which requires
+    explicit approval before they can produce their analysis text.
     Designed to be wrapped with asyncio.to_thread for parallel execution.
     Returns a result dict; on failure returns an error marker so other agents aren't affected.
     """
+    agent_ref = {
+        "agent_reference": {
+            "name": agent_def["name"],
+            "version": agent_def["version"],
+            "type": "agent_reference",
+        }
+    }
     try:
         response = _openai_client.responses.create(
             input=[{"role": "user", "content": prompt}],
-            extra_body={
-                "agent_reference": {
-                    "name": agent_def["name"],
-                    "version": agent_def["version"],
-                    "type": "agent_reference",
-                }
-            },
+            extra_body=agent_ref,
         )
+
+        # MCP tool approval loop — agents with knowledge bases need approval
+        # before they can query their tools and produce analysis text.
+        for iteration in range(5):
+            if response.output_text:
+                break  # Agent produced text, we're done
+
+            approvals = [
+                item for item in (response.output or [])
+                if item.type == "mcp_approval_request"
+            ]
+            if not approvals:
+                break  # No pending approvals and no text — agent is done
+
+            print(f"[Agent MCP] {agent_def['name']}: approving {len(approvals)} tool request(s) (iteration {iteration+1})")
+            approval_inputs = [
+                {
+                    "type": "mcp_approval_response",
+                    "approval_request_id": item.id,
+                    "approve": True,
+                }
+                for item in approvals
+            ]
+            response = _openai_client.responses.create(
+                input=approval_inputs,
+                extra_body=agent_ref,
+                previous_response_id=response.id,
+            )
+
+        out = response.output_text
+        print(f"[Agent OK] {agent_def['name']}: output_text length={len(out) if out else 0}, first 200 chars={repr((out or '')[:200])}")
         return {
             "agent_name": agent_def["name"],
             "label": agent_def.get("label", agent_def["name"]),
-            "text": response.output_text,
+            "text": out,
         }
     except Exception as e:
         print(f"[Agent Error] {agent_def['name']}: {type(e).__name__}: {e}")
@@ -393,6 +429,98 @@ async def analyze(
             yield {"event": "error", "data": json.dumps({"error": str(e)})}
 
     return EventSourceResponse(event_generator())
+
+
+# ── Follow-up chat ("Cheat Sheet" + "Two Hats" pattern) ────────────────
+#
+# "Cheat Sheet":  We pass the full Result JSON so the agent has complete
+#                  context without re-running the 5-agent pipeline.
+# "Two Hats":     We dynamically swap the ConclusionAdvisor's behaviour
+#                  from its default JSON-output mode to a warm, conversational
+#                  "Chat Hat" via the system prompt below.
+# ────────────────────────────────────────────────────────────────────────
+
+CHAT_HAT_SYSTEM_PROMPT = (
+    "You are the HealthLens Assistant, acting as the lead medical and nutritional "
+    "advisor. The user has just scanned a food product. You will be provided with "
+    "the 'Result JSON' (the scan context) and the 'Chat History'. "
+    "Use ONLY the data within this JSON to answer the user's questions. "
+    "Tone: Warm, authoritative, clear, and highly empathetic. "
+    "Format: normal conversational text. DO NOT output JSON. "
+    "If a question is outside the provided data, gracefully state that the "
+    "initial scan did not analyze that specific metric. "
+    "Safety First: Remind them to consult a physician for medical questions, "
+    "referencing Dr. Chen's clinical warnings if applicable."
+)
+
+
+class ChatMessage(BaseModel):
+    role: str   # "user" or "assistant"
+    content: str
+
+
+class FollowUpRequest(BaseModel):
+    scan_context: dict              # The full Result JSON from the initial scan
+    chat_history: list[ChatMessage] # Previous conversation turns
+    new_message: str                # The user's latest question
+
+
+@app.post("/api/followup")
+async def followup_chat(payload: FollowUpRequest):
+    """
+    Follow-up Q&A powered by ConclusionAdvisor ("Chat Hat" mode).
+
+    Instead of re-running the full pipeline, we pass the original scan result
+    (the "cheat sheet") plus the conversation history so the agent has full
+    context to answer the user's follow-up questions conversationally.
+    """
+    cheat_sheet = json.dumps(payload.scan_context, indent=2, ensure_ascii=False)
+
+    # ── Message array construction ───────────────────────────────────
+    # 1. "Chat Hat" system prompt — overrides the agent's default JSON behaviour
+    # 2. Cheat sheet injected as a user→assistant exchange so the agent
+    #    "remembers" the scan without the user having to repeat it
+    # 3. Prior conversation turns (chat_history)
+    # 4. The new user question
+    messages = [
+        {"role": "user",      "content": CHAT_HAT_SYSTEM_PROMPT},
+        {"role": "assistant", "content": "Understood. I will answer conversationally "
+                                          "using only the scan data, maintaining a "
+                                          "warm and empathetic tone. I will not output JSON."},
+        {"role": "user",      "content": f"Here is the scan result (cheat sheet):\n"
+                                          f"```json\n{cheat_sheet}\n```"},
+        {"role": "assistant", "content": "Got it — I've reviewed the full scan result and "
+                                          "I'm ready to answer your questions about this product."},
+    ]
+
+    # Append prior conversation turns
+    for msg in payload.chat_history:
+        messages.append({"role": msg.role, "content": msg.content})
+
+    # Append the new question
+    messages.append({"role": "user", "content": payload.new_message})
+
+    try:
+        response = await asyncio.to_thread(
+            _openai_client.responses.create,
+            input=messages,
+            extra_body={
+                "agent_reference": {
+                    "name": CONCLUSION_AGENT["name"],
+                    "version": CONCLUSION_AGENT["version"],
+                    "type": "agent_reference",
+                }
+            },
+        )
+        reply = response.output_text or "I'm sorry, I couldn't generate a response."
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=502,
+            content={"error": f"Agent call failed: {str(e)}"},
+        )
+
+    return {"reply": reply}
 
 
 if __name__ == "__main__":
