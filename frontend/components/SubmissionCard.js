@@ -1,19 +1,26 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { colors } from '../constants/colors';
 
-export default function SubmissionCard({ image, healthNote, timestamp, compact }) {
+export default function SubmissionCard({ image, healthNote, timestamp, compact, onImagePress }) {
   const thumbSize = compact ? 52 : 68;
 
   return (
     <View style={styles.card}>
       <View style={styles.row}>
-        {/* Thumbnail */}
+        {/* Thumbnail — tappable when onImagePress provided */}
         {image ? (
-          <Image
-            source={{ uri: image }}
-            style={[styles.thumb, { width: thumbSize, height: thumbSize, borderRadius: thumbSize * 0.2 }]}
-          />
+          <Pressable onPress={onImagePress} disabled={!onImagePress}>
+            <Image
+              source={{ uri: image }}
+              style={[styles.thumb, { width: thumbSize, height: thumbSize, borderRadius: thumbSize * 0.2 }]}
+            />
+            {onImagePress ? (
+              <View style={styles.expandHint}>
+                <Text style={styles.expandHintText}>⤢</Text>
+              </View>
+            ) : null}
+          </Pressable>
         ) : (
           <View style={[styles.thumbPlaceholder, { width: thumbSize, height: thumbSize, borderRadius: thumbSize * 0.2 }]}>
             <Text style={styles.thumbEmoji}>🍪</Text>
@@ -54,6 +61,19 @@ const styles = StyleSheet.create({
   },
   thumb: {
     resizeMode: 'cover',
+  },
+  expandHint: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  expandHintText: {
+    color: '#fff',
+    fontSize: 10,
   },
   thumbPlaceholder: {
     backgroundColor: '#1A1A2E',
