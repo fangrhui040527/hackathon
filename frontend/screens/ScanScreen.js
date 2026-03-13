@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../constants/colors';
 import { useScan } from '../context/ScanContext';
 import Background3D from '../components/Background3D';
@@ -46,6 +47,13 @@ export default function ScanScreen({ navigation }) {
   const pressScale = useRef(new Animated.Value(1)).current;
   const [torchOn, setTorchOn] = useState(false);
 
+  // Turn torch off whenever screen loses focus
+  useFocusEffect(
+    useCallback(() => {
+      return () => setTorchOn(false);
+    }, []),
+  );
+
   const onPressIn  = () =>
     Animated.spring(pressScale, { toValue: 0.92, useNativeDriver: true }).start();
   const onPressOut = () =>
@@ -55,6 +63,7 @@ export default function ScanScreen({ navigation }) {
     if (!cameraRef.current) return;
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      setTorchOn(false);
       setImage(photo.uri);
       navigation.navigate('Preview');
     } catch (e) {
@@ -68,6 +77,7 @@ export default function ScanScreen({ navigation }) {
       quality: 0.8,
     });
     if (!res.canceled && res.assets?.[0]?.uri) {
+      setTorchOn(false);
       setImage(res.assets[0].uri);
       navigation.navigate('Preview');
     }

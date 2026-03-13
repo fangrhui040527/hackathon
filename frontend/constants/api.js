@@ -4,7 +4,7 @@
 import { Platform } from 'react-native';
 
 // Use localhost for web, ngrok tunnel for native devices
-const LOCAL_IP = '192.168.100.32'; // ← Your PC's IP (update if network changes)
+const LOCAL_IP = '192.168.0.15'; // ← Your PC's IP (update if network changes)
 const PORT = 8000; // All services on one port
 
 // If using ngrok/localtunnel, set your tunnel URL here
