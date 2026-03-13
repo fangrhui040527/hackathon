@@ -273,6 +273,11 @@ export default function ResultScreen({ navigation }) {
 
   const { product, type, servingSize, nutrition, conclusion, agentOutputs, funFacts } = result;
 
+  const handleChatWithAgent = (agent) => {
+    setSelectedAgent(agent);
+    navigation.navigate('Chat', { agentChat: true });
+  };
+
   return (
     <View style={[styles.container, !isDark && { backgroundColor: palette.deep }]}>
       <FoodBackground />
@@ -323,7 +328,7 @@ export default function ResultScreen({ navigation }) {
           <FunFacts facts={funFacts} isDark={isDark} palette={palette} />
 
           {/* ── E: Specialists ────────────────────────────────────────── */}
-          <Specialists agentOutputs={agentOutputs} />
+          <Specialists agentOutputs={agentOutputs} onChatWithAgent={handleChatWithAgent} />
 
           <View style={{ height: 40 }} />
         </ScrollView>

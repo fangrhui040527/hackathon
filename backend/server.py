@@ -47,14 +47,14 @@ app.add_middleware(
 
 # ── Foundry agent definitions ───────────────────────────────────────────
 AGENTS = [
-    {"name": "doctor-agent",              "version": "19", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
-    {"name": "nutritionist-agent",        "version": "9",  "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
-    {"name": "foodchemist-agent",         "version": "10", "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
-    {"name": "fitnessCoach-agent",        "version": "9",  "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
-    {"name": "healthSpecialist-agent",    "version": "8",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
-    {"name": "cultural-religious-compliance-agent", "version": "9", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
+    {"name": "doctor-agent",              "version": "20", "label": "Dr. Chen",    "display": "🧑‍⚕️ Dr. Chen is reviewing..."},
+    {"name": "nutritionist-agent",        "version": "10", "label": "Dr. Patel",   "display": "🥗 Dr. Patel is analyzing..."},
+    {"name": "foodchemist-agent",         "version": "11", "label": "Dr. Kim",     "display": "🧪 Dr. Kim checking chemicals..."},
+    {"name": "fitnessCoach-agent",        "version": "11", "label": "Marcus",      "display": "🏋️ Marcus assessing fitness..."},
+    {"name": "healthSpecialist-agent",    "version": "9",  "label": "Dr. Amara",   "display": "🏥 Dr. Amara reviewing risks..."},
+    {"name": "cultural-religious-compliance-agent", "version": "12", "label": "Dr. Nixon", "display": "🕌 Dr. Nixon checking compliance..."},
 ]
-CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "9"}
+CONCLUSION_AGENT = {"name": "conclusionAdvisor-agent", "version": "11"}
 
 
 def _extract_product_name(food_data: dict) -> str:
@@ -592,6 +592,188 @@ async def followup_chat(payload: FollowUpRequest):
         messages.append({"role": msg.role, "content": msg.content})
 
     # Append the new question
+    messages.append({"role": "user", "content": payload.new_message})
+
+    try:
+        response = await asyncio.to_thread(
+            _openai_client.responses.create,
+            input=messages,
+            extra_body={
+                "agent_reference": {
+                    "name": CONCLUSION_AGENT["name"],
+                    "version": CONCLUSION_AGENT["version"],
+                    "type": "agent_reference",
+                }
+            },
+        )
+        reply = response.output_text or "I'm sorry, I couldn't generate a response."
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=502,
+            content={"error": f"Agent call failed: {str(e)}"},
+        )
+
+    return {"reply": reply}
+
+
+# ── Agent-specific chat ──────────────────────────────────────────────────
+#
+# Similar to the follow-up endpoint but routes the user's message to a
+# specific specialist agent instead of the conclusion advisor.
+# The scan result is injected as a "cheat sheet" so the specialist has
+# full context without re-running the pipeline.
+# ────────────────────────────────────────────────────────────────────────
+
+AGENT_CHAT_SYSTEM_PROMPT = (
+    "You are {agent_name}, an expert {agent_role} working for HealthLens AI. "
+    "The user has scanned a food product and now wants to talk to you directly. "
+    "You will be provided with the full scan result (including all specialist "
+    "reports) as context. Answer the user's questions from YOUR specialist "
+    "perspective only. "
+    "Tone: Warm, authoritative, clear, and empathetic. "
+    "Format: normal conversational text. DO NOT output JSON. "
+    "If a question falls outside your expertise, say so and suggest which "
+    "specialist they should ask instead. "
+    "Safety First: Always remind them to consult a physician for clinical questions."
+)
+
+# Map frontend agent IDs to backend agent definitions
+AGENT_ID_MAP = {a["name"]: a for a in AGENTS}
+
+
+class AgentChatRequest(BaseModel):
+    agent_id: str                   # Backend agent name, e.g. "doctor-agent"
+    scan_context: dict              # The full Result JSON from the initial scan
+    chat_history: list[ChatMessage] # Previous conversation turns
+    new_message: str                # The user's latest question
+
+
+@app.post("/api/agent-chat")
+async def agent_chat(payload: AgentChatRequest):
+    """
+    Chat with a specific specialist agent.
+
+    Routes the user's message to one of the 6 specialist agents (not the
+    conclusion advisor). The scan result is injected as a cheat sheet so
+    the agent has full product context.
+    """
+    agent_def = AGENT_ID_MAP.get(payload.agent_id)
+    if not agent_def:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Unknown agent: {payload.agent_id}"},
+        )
+
+    cheat_sheet = json.dumps(payload.scan_context, indent=2, ensure_ascii=False)
+
+    system_prompt = AGENT_CHAT_SYSTEM_PROMPT.format(
+        agent_name=agent_def["label"],
+        agent_role=agent_def["display"].split(" ", 1)[-1].rstrip("."),
+    )
+
+    messages = [
+        {"role": "user",      "content": system_prompt},
+        {"role": "assistant", "content": "Understood. I will answer conversationally "
+                                          "from my specialist perspective using the scan "
+                                          "data provided. I will not output JSON."},
+        {"role": "user",      "content": f"Here is the full scan result:\n"
+                                          f"```json\n{cheat_sheet}\n```"},
+        {"role": "assistant", "content": f"Got it — I've reviewed the scan result. "
+                                          f"I'm {agent_def['label']}, ready to answer "
+                                          f"your questions about this product."},
+    ]
+
+    for msg in payload.chat_history:
+        messages.append({"role": msg.role, "content": msg.content})
+
+    messages.append({"role": "user", "content": payload.new_message})
+
+    try:
+        response = await asyncio.to_thread(
+            _openai_client.responses.create,
+            input=messages,
+            extra_body={
+                "agent_reference": {
+                    "name": agent_def["name"],
+                    "version": agent_def["version"],
+                    "type": "agent_reference",
+                }
+            },
+        )
+
+        # Handle MCP approval requests (same pattern as _call_foundry_agent)
+        for _ in range(10):
+            if response.output_text:
+                break
+            approvals = [
+                item for item in (response.output or [])
+                if item.type == "mcp_approval_request"
+            ]
+            if not approvals:
+                break
+            response = _openai_client.responses.create(
+                input=[{
+                    "type": "mcp_approval_response",
+                    "approval_request_id": item.id,
+                    "approve": True,
+                } for item in approvals],
+                extra_body={
+                    "agent_reference": {
+                        "name": agent_def["name"],
+                        "version": agent_def["version"],
+                        "type": "agent_reference",
+                    }
+                },
+                previous_response_id=response.id,
+            )
+
+        reply = response.output_text or "I'm sorry, I couldn't generate a response."
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=502,
+            content={"error": f"Agent call failed: {str(e)}"},
+        )
+
+    return {"reply": reply}
+
+
+# ── General chat (no scan required) ──────────────────────────────────────
+
+GENERAL_CHAT_SYSTEM_PROMPT = (
+    "You are the HealthLens Assistant, a warm and knowledgeable food & nutrition "
+    "AI companion. The user has NOT scanned a product yet. "
+    "Answer general food, nutrition, health, and wellness questions helpfully. "
+    "If the question would benefit from scanning a specific product, gently "
+    "suggest they scan a nutrition label for a more personalised answer. "
+    "Tone: Warm, friendly, clear, and empathetic. "
+    "Format: normal conversational text. DO NOT output JSON. "
+    "Safety First: Always remind them to consult a physician for clinical questions."
+)
+
+
+class GeneralChatRequest(BaseModel):
+    chat_history: list[ChatMessage]
+    new_message: str
+
+
+@app.post("/api/general-chat")
+async def general_chat(payload: GeneralChatRequest):
+    """
+    General conversational chat when no scan result is available.
+    Uses the ConclusionAdvisor agent with a general-purpose system prompt.
+    """
+    messages = [
+        {"role": "user",      "content": GENERAL_CHAT_SYSTEM_PROMPT},
+        {"role": "assistant", "content": "Understood. I will answer general food and "
+                                          "nutrition questions conversationally with a "
+                                          "warm and empathetic tone. I will not output JSON."},
+    ]
+
+    for msg in payload.chat_history:
+        messages.append({"role": msg.role, "content": msg.content})
+
     messages.append({"role": "user", "content": payload.new_message})
 
     try:
